@@ -1,18 +1,29 @@
 (function () {
-  'use strict'; 
+  'use strict';
 
-  const SOURCES = [
-    // 🔹 БАЗОВЫЙ ONLINE MOD
+  // ================================
+  // 🔒 ЗАЩИТА ОТ ПОВТОРНОЙ ЗАГРУЗКИ
+  // ================================
+  if (window.__ONLINE_PACK_LOADED__) return;
+  window.__ONLINE_PACK_LOADED__ = true;
+
+  const LOG = '[ONLINE PACK]';
+
+  // ================================
+  // 📦 ИСТОЧНИКИ
+  // ================================
+  const CORE = [
     {
       name: 'Online Mod',
       url: 'https://nb557.github.io/plugins/online_mod.js'
     },
-
-    // 🔹 BYLAMPA
     {
       name: 'Free Online',
       url: 'https://bylampa.github.io/free_onl.js'
-    },
+    }
+  ];
+
+  const OPTIONAL = [
     {
       name: 'Cinema',
       url: 'https://bylampa.github.io/cinema.js'
@@ -20,9 +31,10 @@
     {
       name: 'Filmix',
       url: 'https://bylampa.github.io/fx.js'
-    },
+    }
+  ];
 
-    // 🔹 СТОРОННИЕ / НЕСТАБИЛЬНЫЕ
+  const UNSAFE = [
     {
       name: 'Showwwy',
       url: 'http://showwwy.com/m.js'
@@ -41,46 +53,82 @@
     }
   ];
 
-  function loadScript(src) {
-    return new Promise((resolve, reject) => {
-      if (document.querySelector(`script[src="${src}"]`)) {
+  // ================================
+  // 🔍 ПРОВЕРКИ
+  // ================================
+  function isMixedContent(url) {
+    return location.protocol === 'https:' && url.startsWith('http://');
+  }
+
+  function alreadyLoaded(url) {
+    return !!document.querySelector(`script[src="${url}"]`);
+  }
+
+  // ================================
+  // 📥 ЗАГРУЗКА СКРИПТА
+  // ================================
+  function loadScript(source) {
+    return new Promise((resolve) => {
+      if (alreadyLoaded(source.url)) {
+        console.log(`${LOG} already loaded: ${source.name}`);
+        return resolve();
+      }
+
+      if (isMixedContent(source.url)) {
+        console.warn(`${LOG} skipped (mixed content): ${source.name}`);
         return resolve();
       }
 
       const s = document.createElement('script');
-      s.src = src;
+      s.src = source.url;
       s.async = false;
+
       s.onload = () => {
-        console.log('[ONLINE PACK] loaded:', src);
+        console.log(`${LOG} loaded: ${source.name}`);
         resolve();
       };
+
       s.onerror = () => {
-        console.warn('[ONLINE PACK] failed:', src);
-        reject();
+        console.warn(`${LOG} failed: ${source.name}`);
+        resolve(); // ❗ не ломаем цепочку
       };
 
       document.head.appendChild(s);
     });
   }
 
+  // ================================
+  // 🚀 BOOT
+  // ================================
   async function boot() {
-    console.log('[ONLINE PACK] start');
+    console.log(`${LOG} start`);
 
-    for (const s of SOURCES) {
-      try {
-        await loadScript(s.url);
-      } catch (e) {
-        // просто пропускаем упавший источник
-      }
+    for (const src of CORE) {
+      await loadScript(src);
     }
 
-    console.log('[ONLINE PACK] done');
+    for (const src of OPTIONAL) {
+      await loadScript(src);
+    }
+
+    for (const src of UNSAFE) {
+      await loadScript(src);
+    }
+
+    console.log(`${LOG} done`);
   }
 
-  // ждём, пока Lampa полностью стартует
-  Lampa.Listener.follow('app', function (e) {
-    if (e.type === 'ready') {
-      boot();
-    }
-  });
+  // ================================
+  // ⏳ ЖДЁМ ГОТОВНОСТИ LAMPA
+  // ================================
+  if (window.Lampa && Lampa.Listener) {
+    Lampa.Listener.follow('app', function (e) {
+      if (e.type === 'ready') {
+        boot();
+      }
+    });
+  } else {
+    console.warn(`${LOG} Lampa not detected`);
+  }
+
 })();
