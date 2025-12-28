@@ -1,5 +1,5 @@
 (function () {
-  'use strict';
+  'use strict'; 
 
   const SOURCES = [
     // 🔹 БАЗОВЫЙ ONLINE MOD
