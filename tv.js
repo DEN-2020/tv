@@ -215,51 +215,73 @@ function tf(t, format, u, tz) {
 }
 
 function prepareUrl(url, epg) {
-        var m = [], val = '', r = {start:unixtime,offset:0};
-        if (epg && epg.length) {
-            r = {
-                start: epg[0] * 60,
-                utc: epg[0] * 60,
-                end: (epg[0] + epg[1]) * 60,
-                utcend: (epg[0] + epg[1]) * 60,
-                offset: unixtime() - epg[0] * 60,
-                duration: epg[1] * 60,
-                now: unixtime,
-                lutc: unixtime,
-                d: function(m){return strReplace(m[6]||'',{M:epg[1],S:epg[1]*60,h:Math.floor(epg[1]/60),m:('0'+(epg[1] % 60)).substr(-2),s:'00'})},
-                b: function(m){return tf(epg[0], m[6], m[4], m[5])},
-                e: function(m){return tf(epg[0] + epg[1], m[6], m[4], m[5])},
-                n: function(m){return tf(unixtime() / 60, m[6], m[4], m[5])}
-            };
-        }
-        
-        while (!!(m = url.match(/\${(\((([a-zA-Z\d]+?)(u)?)([+-]\d+)?\))?([^${}]+)}/))) {
-            if (!!m[2] && typeof r[m[2]] === "function") val = r[m[2]](m);
-            else if (!!m[3] && typeof r[m[3]] === "function") val = r[m[3]](m);
-            else if (m[6] in r) val = typeof r[m[6]] === "function" ? r[m[6]]() : r[m[6]];
-            else if (!!m[2] && typeof utils[m[2]] === "function") val = utils[m[2]](m[6]);
-            else if (m[6] in utils) val = typeof utils[m[6]] === "function" ? utils[m[6]]() : utils[m[6]];
-            else val = m[1];
-            url = url.replace(m[0], encodeURIComponent(val));
-        }
-
-        // --- ВОТ ЭТОТ БЛОК ПРОВЕРЯЕТ ПРОКСИ ---
-        // Читаем настройку. Если там строка "true", превращаем в настоящее true
-        var useProxy = Lampa.Storage.get('hack_tv_proxy_enabled', false);
-        if(useProxy === 'true') useProxy = true; 
-        if(useProxy === 'false') useProxy = false;
-
-        var proxyAddr = Lampa.Storage.get('hack_tv_proxy_address', 'http://192.168.1.50:7777');
-
-        if (useProxy && proxyAddr && url.indexOf(proxyAddr) === -1) {
-                console.log('Hack TV: Использую прокси -> ' + url);
-                var cleanAddr = proxyAddr.replace(/\/$/, "");
-                return cleanAddr + '/proxy?url=' + encodeURIComponent(url);
-            } else {
-                console.log('Hack TV: Прямое подключение (настройки: прокси=' + useProxy + ', адрес=' + proxyAddr + ')');
-            }
-            return url;
+    var m = [], val = '', r = {start: unixtime(), offset: 0};
+    if (epg && epg.length) {
+        r = {
+            start: epg[0] * 60,
+            utc: epg[0] * 60,
+            end: (epg[0] + epg[1]) * 60,
+            utcend: (epg[0] + epg[1]) * 60,
+            offset: unixtime() - epg[0] * 60,
+            duration: epg[1] * 60,
+            now: unixtime,
+            lutc: unixtime,
+            d: function(m){return strReplace(m[6]||'',{M:epg[1],S:epg[1]*60,h:Math.floor(epg[1]/60),m:('0'+(epg[1] % 60)).substr(-2),s:'00'})},
+            b: function(m){return tf(epg[0], m[6], m[4], m[5])},
+            e: function(m){return tf(epg[0] + epg[1], m[6], m[4], m[5])},
+            n: function(m){return tf(unixtime() / 60, m[6], m[4], m[5])}
+        };
     }
+    
+    while (!!(m = url.match(/\${(\((([a-zA-Z\d]+?)(u)?)([+-]\d+)?\))?([^${}]+)}/))) {
+        if (!!m[2] && typeof r[m[2]] === "function") val = r[m[2]](m);
+        else if (!!m[3] && typeof r[m[3]] === "function") val = r[m[3]](m);
+        else if (m[6] in r) val = typeof r[m[6]] === "function" ? r[m[6]]() : r[m[6]];
+        else if (!!m[2] && typeof utils[m[2]] === "function") val = utils[m[2]](m[6]);
+        else if (m[6] in utils) val = typeof utils[m[6]] === "function" ? utils[m[6]]() : utils[m[6]];
+        else val = m[1];
+        url = url.replace(m[0], encodeURIComponent(val));
+    }
+
+    // ЛОГИКА ПРОКСИ
+    var useProxy = Lampa.Storage.get('hack_tv_proxy_enabled', false);
+    if(useProxy === 'true') useProxy = true;
+    if(useProxy === 'false') useProxy = false;
+
+    var proxyAddr = Lampa.Storage.get('hack_tv_proxy_address', 'http://192.168.1.50:7777');
+
+    if (useProxy && proxyAddr && url.indexOf(proxyAddr) === -1 && url.indexOf('http') === 0) {
+        console.log('Hack TV: Проксирование -> ' + url);
+        var cleanAddr = proxyAddr.replace(/\/$/, "");
+        return cleanAddr + '/proxy?url=' + encodeURIComponent(url);
+    }
+    
+    console.log('Hack TV: Прямое соединение');
+    return url;
+}
+
+
+// РЕГИСТРАЦИЯ КОМПОНЕНТА И НАСТРОЕК
+Lampa.Component.add(plugin.component, pluginPage);
+Lampa.SettingsApi.addComponent(plugin);
+
+// ДОБАВЛЕНИЕ ПУНКТОВ В МЕНЮ НАСТРОЕК
+function addSettingsFields() {
+    Lampa.SettingsApi.addParam(plugin, {
+        title: 'Использовать прокси',
+        name: 'hack_tv_proxy_enabled',
+        type: 'boolean',
+        default: false
+    });
+
+    Lampa.SettingsApi.addParam(plugin, {
+        title: 'Адрес сервера прокси',
+        name: 'hack_tv_proxy_address',
+        type: 'input',
+        default: 'http://192.168.1.50:7777'
+    });
+}
+addSettingsFields();
 
 function catchupUrl(url, type, source) {
             type = (type || '').toLowerCase();
@@ -1709,55 +1731,39 @@ function configurePlaylist(i) {
 }
 
 
-Lampa.Component.add(plugin.component, pluginPage);
-
-// --- ИНИЦИАЛИЗАЦИЯ НАСТРОЕК ---
-Lampa.SettingsApi.addComponent(plugin);
-
-// 1. КНОПКА УСТАНОВКИ (Чтобы закрепить твой GitHub в Лампе)
+// 1. КНОПКА УСТАНОВКИ
 addSettings('click', {
     title: 'Установить Hack TV',
     description: 'Нажми, чтобы Лампа запомнила этот плагин с твоего GitHub',
     name: 'install_button'
 }, function() {
-    // ВСТАВЬ ТУТ СВОЮ ССЫЛКУ (обязательно RAW)
     var my_url = 'https://den-2020.github.io/tv/tv.js';
-
     Lampa.Plugins.add({
         url: my_url,
         status: 1,
         name: 'Hack TV Custom',
         author: 'Me'
     });
-
     Lampa.Noty.show('Плагин установлен в систему!');
-    
-    setTimeout(function(){
-        window.location.reload();
-    }, 2000);
+    setTimeout(function(){ window.location.reload(); }, 2000);
 });
 
-// 2. НАСТРОЙКИ ВИДА (Иконки)
+// 2. НАСТРОЙКИ ВИДА
 addSettings('trigger', {
     title: langGet('square_icons'),
     name: 'square_icons',
     default: false,
-    onChange: function(v){
-        $('.my_iptv2.category-full').toggleClass('square_icons', v === 'true');
-    }
+    onChange: function(v){ $('.my_iptv2.category-full').toggleClass('square_icons', v === 'true'); }
 });
 
 addSettings('trigger', {
     title: langGet('contain_icons'),
-    description: langGet('contain_icons_desc'),
     name: 'contain_icons',
     default: true,
-    onChange: function(v){
-        $('.my_iptv2.category-full').toggleClass('contain_icons', v === 'true');
-    }
+    onChange: function(v){ $('.my_iptv2.category-full').toggleClass('contain_icons', v === 'true'); }
 });
 
-// 3. НАСТРОЙКИ ПРОКСИ
+// 3. НАСТРОЙКИ ПРОКСИ (Boolean заставляет появиться переключатель Да/Нет)
 addSettings('boolean', {
     title: 'Использовать прокси',
     description: 'Пропускать запросы через ваш локальный сервер',
@@ -1767,9 +1773,9 @@ addSettings('boolean', {
 
 addSettings('input', {
     title: 'Адрес сервера прокси',
-    description: 'Введите IP вашего компьютера, где запущен сервер (например: http://192.168.0.15:7777)',
+    description: 'Введите IP вашего компьютера (например: http://192.168.2.122:7777)',
     name: 'hack_tv_proxy_address',
-    default: 'http://192.168.1.50:7777'
+    default: 'http://192.168.2.122:7777'
 });
 
 // 4. ГЕНЕРАЦИЯ ПЛЕЙЛИСТОВ
@@ -1790,7 +1796,6 @@ addSettings('static', {title: UID, description: langGet('unique_id')});
 function pluginStart() {
     if (!!window['plugin_' + plugin.component + '_ready']) return;
     window['plugin_' + plugin.component + '_ready'] = true;
-
     var menu = $('.menu .menu__list').eq(0);
     for (var i = 0; i < lists.length; i++) {
         menu.append(lists[i].menuEl);
