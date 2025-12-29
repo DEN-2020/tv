@@ -259,26 +259,40 @@ function prepareUrl(url, epg) {
 }
 
 
-// --- ДОБАВЬ ЭТОТ БЛОК ВЗАМЕН СТАРОГО ---
+
 
 // РЕГИСТРАЦИЯ КОМПОНЕНТА И НАСТРОЕК
+// 1. Сначала регистрируем компонент
 Lampa.Component.add(plugin.component, pluginPage);
 
-// Функция добавления настроек в раздел "Настройки -> Плагины"
+// 2. Создаем функцию для параметров
 function addSettingsFields() {
-    Lampa.SettingsApi.addParam(plugin, {
-        title: 'Использовать прокси',
-        name: 'hack_tv_proxy_enabled',
-        type: 'boolean',
-        default: false
-    });
+    // Проверяем, существует ли API настроек и готов ли плагин
+    if (typeof Lampa.SettingsApi !== 'undefined') {
+        Lampa.SettingsApi.addParam(plugin, {
+            title: 'Использовать прокси',
+            name: 'hack_tv_proxy_enabled',
+            type: 'boolean',
+            default: false
+        });
 
-    Lampa.SettingsApi.addParam(plugin, {
-        title: 'Адрес сервера прокси',
-        name: 'hack_tv_proxy_address',
-        type: 'input',
-        default: 'http://192.168.1.50:7777',
-        placeholder: 'http://IP:PORT'
+        Lampa.SettingsApi.addParam(plugin, {
+            title: 'Адрес сервера прокси',
+            name: 'hack_tv_proxy_address',
+            type: 'input',
+            default: 'http://192.168.1.50:7777'
+        });
+    }
+}
+
+// 3. Запускаем добавление по событию готовности плагинов или с небольшой задержкой
+if (window.appready) {
+    addSettingsFields();
+} else {
+    Lampa.Listener.follow('app', function (e) {
+        if (e.type == 'ready') {
+            addSettingsFields();
+        }
     });
 }
 
@@ -298,7 +312,7 @@ Lampa.Settings.listener.follow('open', function (e) {
 });
 
 addSettingsFields();
-// --- КОНЕЦ БЛОКА ---
+
 
 function catchupUrl(url, type, source) {
             type = (type || '').toLowerCase();
