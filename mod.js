@@ -1,4 +1,4 @@
-//22.12.2025 - Fix
+//29.12.2025 - Fix
 
 (function () {
     'use strict';
@@ -2559,7 +2559,7 @@
         }
 
         network.clear();
-        network.timeout(1000 * 10);
+        network.timeout(1000 * 4);
         network["native"](component.proxyLink(url, prox, prox_enc_page), function (str) {
           str = (str || '').replace(/\n/g, '');
           var links = object.movie.number_of_seasons ? str.match(/<div class="title"><a href="\/(serial|tv_show)\/([^"]*)"[^>]*>(.*?)<\/a><\/div>/g) : str.match(/<div class="title"><a href="\/film\/([^"]*)"[^>]*>(.*?)<\/a><\/div>/g);
@@ -11780,31 +11780,7 @@
       var auto_max = 4; // максимум попыток
 
       // === AUTO SOURCE SWITCH FUNCTION ===
-      function tryNextSource(ctx) {
-        console.log('[AUTO SWITCH]', auto_index, auto_sources);
 
-        if (!auto_switch) return false;
-
-        auto_index++;
-
-        if (auto_index >= auto_sources.length || auto_index >= auto_max) {
-          return false;
-        }
-
-        var next = auto_sources[auto_index];
-        if (!sources[next]) return false;
-
-        balanser = next;
-        source = sources[next].url;
-
-        ctx.loading(true);
-
-        setTimeout(function () {
-          ctx.find();
-        }, 1200);
-
-        return true;
-      }
 
 
       var scroll = new Lampa.Scroll({
@@ -12438,7 +12414,34 @@
 
               _this4.loading(false);
             }
-          } else _this4.emptyForQuery(query);
+       } else {
+
+              console.warn('[AUTO SWITCH] empty from:', balanser);
+
+              _this4.loading(false);
+
+              setTimeout(function () {
+
+                if (!auto_switch) {
+                  _this4.emptyForQuery(query);
+                  return;
+                }
+
+                var next = auto_sources[auto_index + 1];
+
+                if (next && auto_index + 1 < auto_sources.length && auto_index + 1 < auto_max) {
+                  auto_index++;
+                  console.warn('[AUTO SWITCH] try:', next);
+                  _this4.changeBalanser(next);
+                } else {
+                  console.warn('[AUTO SWITCH] finished');
+                  _this4.emptyForQuery(query);
+                }
+
+              }, 1200);
+            }
+
+
         };
 
         var vcdn_search_by_title = function vcdn_search_by_title(callback, error) {
@@ -13229,8 +13232,6 @@
 
 
       this.empty = function (msg) {
-        if (tryNextSource(this)) return;
-
         var empty = Lampa.Template.get('list_empty');
         if (msg) empty.find('.empty__descr').text(msg);
         scroll.append(empty);
@@ -13242,23 +13243,14 @@
        */
 
 
-    this.emptyForQuery = function (query) {
-      if (auto_switch && auto_index < auto_sources.length - 1 && auto_index < auto_max) {
-        auto_index++;
+      this.emptyForQuery = function (query) {
+        this.empty(
+          Lampa.Lang.translate('online_mod_query_start') +
+          ' (' + query + ') ' +
+          Lampa.Lang.translate('online_mod_query_end')
+        );
+      };
 
-        var next = auto_sources[auto_index];
-        console.warn('[ONLINE AUTO] switch to:', next);
-
-        this.changeBalanser(next);
-        return;
-      }
-
-      this.empty(
-        Lampa.Lang.translate('online_mod_query_start') +
-        ' (' + query + ') ' +
-        Lampa.Lang.translate('online_mod_query_end')
-      );
-    };
 
 
       this.getLastEpisode = function (items) {
