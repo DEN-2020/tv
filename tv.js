@@ -244,17 +244,21 @@ function prepareUrl(url, epg) {
         }
 
         // --- ВОТ ЭТОТ БЛОК ПРОВЕРЯЕТ ПРОКСИ ---
+        // Читаем настройку. Если там строка "true", превращаем в настоящее true
         var useProxy = Lampa.Storage.get('hack_tv_proxy_enabled', false);
+        if(useProxy === 'true') useProxy = true; 
+        if(useProxy === 'false') useProxy = false;
+
         var proxyAddr = Lampa.Storage.get('hack_tv_proxy_address', 'http://192.168.1.50:7777');
 
         if (useProxy && proxyAddr && url.indexOf(proxyAddr) === -1) {
-            console.log('Hack TV: Отправка через прокси -> ' + url);
-            var cleanAddr = proxyAddr.replace(/\/$/, "");
-            return cleanAddr + '/proxy?url=' + encodeURIComponent(url);
-        } else {
-            console.log('Hack TV: Прямое подключение (без прокси)');
-        }
-        return url;
+                console.log('Hack TV: Использую прокси -> ' + url);
+                var cleanAddr = proxyAddr.replace(/\/$/, "");
+                return cleanAddr + '/proxy?url=' + encodeURIComponent(url);
+            } else {
+                console.log('Hack TV: Прямое подключение (настройки: прокси=' + useProxy + ', адрес=' + proxyAddr + ')');
+            }
+            return url;
     }
 
 function catchupUrl(url, type, source) {
@@ -1754,7 +1758,7 @@ addSettings('trigger', {
 });
 
 // 3. НАСТРОЙКИ ПРОКСИ
-addSettings('trigger', {
+addSettings('boolean', {
     title: 'Использовать прокси',
     description: 'Пропускать запросы через ваш локальный сервер',
     name: 'hack_tv_proxy_enabled',
