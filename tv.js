@@ -217,31 +217,41 @@ function tf(t, format, u, tz) {
 function prepareUrl(url, epg) {
     var m = [], val = '', r = {start:unixtime,offset:0};
     if (epg && epg.length) {
-	r = {
-	    start: epg[0] * 60,
-	    utc: epg[0] * 60,
-	    end: (epg[0] + epg[1]) * 60,
-	    utcend: (epg[0] + epg[1]) * 60,
-	    offset: unixtime() - epg[0] * 60,
-	    duration: epg[1] * 60,
-	    now: unixtime,
-	    lutc: unixtime,
-	    d: function(m){return strReplace(m[6]||'',{M:epg[1],S:epg[1]*60,h:Math.floor(epg[1]/60),m:('0'+(epg[1] % 60)).substr(-2),s:'00'})},
-	    b: function(m){return tf(epg[0], m[6], m[4], m[5])},
-	    e: function(m){return tf(epg[0] + epg[1], m[6], m[4], m[5])},
-	    n: function(m){return tf(unixtime() / 60, m[6], m[4], m[5])}
-	};
+        r = {
+            start: epg[0] * 60,
+            utc: epg[0] * 60,
+            end: (epg[0] + epg[1]) * 60,
+            utcend: (epg[0] + epg[1]) * 60,
+            offset: unixtime() - epg[0] * 60,
+            duration: epg[1] * 60,
+            now: unixtime,
+            lutc: unixtime,
+            d: function(m){return strReplace(m[6]||'',{M:epg[1],S:epg[1]*60,h:Math.floor(epg[1]/60),m:('0'+(epg[1] % 60)).substr(-2),s:'00'})},
+            b: function(m){return tf(epg[0], m[6], m[4], m[5])},
+            e: function(m){return tf(epg[0] + epg[1], m[6], m[4], m[5])},
+            n: function(m){return tf(unixtime() / 60, m[6], m[4], m[5])}
+        };
     }
     while (!!(m = url.match(/\${(\((([a-zA-Z\d]+?)(u)?)([+-]\d+)?\))?([^${}]+)}/))) {
-	if (!!m[2] && typeof r[m[2]] === "function") val = r[m[2]](m);
-	else if (!!m[3] && typeof r[m[3]] === "function") val = r[m[3]](m);
-	else if (m[6] in r) val = typeof r[m[6]] === "function" ? r[m[6]]() : r[m[6]];
-	else if (!!m[2] && typeof utils[m[2]] === "function") val = utils[m[2]](m[6]);
-	else if (m[6] in utils) val = typeof utils[m[6]] === "function" ? utils[m[6]]() : utils[m[6]];
-	else val = m[1];
-	url = url.replace(m[0], encodeURIComponent(val));
+        if (!!m[2] && typeof r[m[2]] === "function") val = r[m[2]](m);
+        else if (!!m[3] && typeof r[m[3]] === "function") val = r[m[3]](m);
+        else if (m[6] in r) val = typeof r[m[6]] === "function" ? r[m[6]]() : r[m[6]];
+        else if (!!m[2] && typeof utils[m[2]] === "function") val = utils[m[2]](m[6]);
+        else if (m[6] in utils) val = typeof utils[m[6]] === "function" ? utils[m[6]]() : utils[m[6]];
+        else val = m[1];
+        url = url.replace(m[0], encodeURIComponent(val));
     }
-    return url;
+
+    // --- УМНОЕ ПРОКСИРОВАНИЕ ---
+    // Проверяем настройку в Лампе. Если прокси выключен — отдаем чистую ссылку.
+    var useProxy = Lampa.Storage.get('hack_tv_proxy_enabled', 'false'); 
+    var proxyAddr = Lampa.Storage.get('hack_tv_proxy_address', 'http://192.168.1.50:7777');
+
+    if (useProxy === 'true' || useProxy === true) {
+        return proxyAddr + '/proxy?url=' + encodeURIComponent(url);
+    }
+
+    return url; // Если прокси выключен, работаем по-старому
 }
 
 function catchupUrl(url, type, source) {
@@ -709,7 +719,11 @@ function pluginPage(object) {
 			: catalog[object.currentGroup]['channels']
 		);
 	    }
-	    var listUrl = prepareUrl(object.url);
+
+	    // Мы применяем проксирование и к самому плейлисту тоже
+        var listUrl = prepareUrl(object.url); 
+        // Так как prepareUrl теперь ВСЕГДА возвращает localhost:7777, 
+        // то network.native пойдет на твой сервер, а тот — на адрес плейлиста.
 	    network.native(
 		listUrl,
 		compileList,
@@ -1749,4 +1763,47 @@ function pluginStart() {
 if (!!window.appready) pluginStart();
 else Lampa.Listener.follow('app', function(e){if (e.type === 'ready') pluginStart()});
 
-})();
+// --- ДОБАВЛЯЕМ МЕНЮ НАСТРОЕК В ЛАМПУ ---
+Lampa.Settings.listener.follow('open', function (e) {
+    if (e.name == 'main') {
+        setTimeout(function() {
+            var field = $('<div class="settings-folder selector" data-name="hack_tv_settings" data-children="true">' +
+                '<div class="settings-folder__icon"><svg height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg" fill="currentColor"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.13,5.91,7.62,6.29L5.23,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.72,8.87 c-0.11,0.2-0.06,0.47,0.12,0.61l2.03,1.58C4.84,11.36,4.81,11.68,4.81,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg></div>' +
+                '<div class="settings-folder__title">Настройки Hack TV</div>' +
+                '</div>');
+            
+            field.on('hover:enter', function() {
+                var items = [
+                    {
+                        title: 'Использовать прокси (ПК)',
+                        description: 'Включите ТОЛЬКО если на ПК запущен server.js',
+                        name: 'hack_tv_proxy_enabled',
+                        type: 'select',
+                        values: { 'true': 'Включено', 'false': 'Выключено' },
+                        default: 'false'
+                    },
+                    {
+                        title: 'Адрес прокси-сервера',
+                        description: 'IP вашего компьютера (например: http://192.168.1.50:7777)',
+                        name: 'hack_tv_proxy_address',
+                        type: 'input',
+                        default: 'http://localhost:7777'
+                    }
+                ];
+                Lampa.Select.show({
+                    title: 'Параметры прокси',
+                    items: items,
+                    onSelect: function(item) {
+                        Lampa.Storage.set(item.name, item.value);
+                    },
+                    onBack: function() {
+                        Lampa.Controller.toggle('settings_main');
+                    }
+                });
+            });
+            $('.settings__content').append(field);
+        }, 50);
+    }
+});
+})(); // Самый конец файла
+
