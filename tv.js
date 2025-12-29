@@ -1,5 +1,5 @@
 /*
-UPDATED 30.12.2025
+UPDATED 30.12.2025 fix
 */
 ;(function () {
 'use strict';
@@ -544,10 +544,36 @@ function catchupUrl(url, type, source) {
         $('body').append(Lampa.Template.get(plugin.component + '_style', {}, true));
 
         function epgRender(epgId) {
-    // Здесь должна быть логика отрисовки текста в шаблоны epgTemplate
-    // Если её нет — просто создайте пустую, чтобы не было ошибок:
-    // function epgRender(id) { console.log('Render EPG for', id); }
-}
+            var epg = getEpgSessCache(epgId, unixtime() / 60);
+            var el = $('[data-epg="' + epgId + '"]');
+            if (epg && epg.length && el.length) {
+                var now = epg[0];
+                var time = unixtime() / 60;
+                var progress = Math.min(100, Math.max(0, Math.round((time - now[0]) * 100 / now[1])));
+                
+                // Обновляем прогресс-бар на карточке
+                el.find('.card__epg-progress').css('width', progress + '%');
+                el.find('.card__epg-title').text(now[2]);
+                el.find('.card__age').show();
+
+                // Если открыта панель подробностей (epgTemplate)
+                if (epgIdCurrent === epgId) {
+                    epgTemplate.find('.js-epgTime').text(toLocaleTimeString(now[0] * 60 * 1000));
+                    epgTemplate.find('.js-epgTitle').text(now[2]);
+                    epgTemplate.find('.js-epgProgress').css('width', progress + '%');
+                    epgTemplate.find('.js-epgDesc').text(now[3] || '');
+                    
+                    // Отрисовка списка "Что потом"
+                    var list = epgTemplate.find('.js-epgList').empty();
+                    for (var i = 1; i < Math.min(epg.length, 5); i++) {
+                        var item = epgItemTeplate.clone();
+                        item.find('.js-epgTime').text(toLocaleTimeString(epg[i][0] * 60 * 1000));
+                        item.find('.js-epgTitle').text(epg[i][2]);
+                        list.append(item);
+                    }
+                }
+            }
+        }
 
 
     function pluginPage(object) {
@@ -1215,25 +1241,62 @@ if (!UID) {
 }
 
 // Запуск плагина (добавление в меню)
+// Функция инициализации
 function pluginStart() {
+    // Проверка, чтобы не запускать дважды
     if (window['plugin_' + plugin.component + '_ready']) return;
     window['plugin_' + plugin.component + '_ready'] = true;
-    
-    var menu = $('.menu .menu__list').eq(0);
-    for (var i = 0; i < lists.length; i++) {
-        if (lists[i] && lists[i].menuEl) {
-            menu.append(lists[i].menuEl);
-        }
-    }
 
+    console.log('Hack TV: Starting plugin...');
+
+    // 1. Добавляем кнопки в боковое меню
     Lampa.Listener.follow('app', function (e) {
-        if (e.type == 'keydown') {
-            keydown(e); // Теперь при нажатии кнопки будет вызываться твоя функция
+        if (e.type == 'ready') {
+            var menu_items = [
+                {
+                    title: 'Hack TV',
+                    id: 'hack_tv_main',
+                    icon: plugin.icon
+                }
+            ];
+
+            // Пробуем добавить кнопку в меню
+            var menu = $('.menu .menu__list');
+            if (menu.length) {
+                menu_items.forEach(function (item) {
+                    if (!$('.menu__item[data-id="' + item.id + '"]').length) {
+                        var el = $('<li class="menu__item selector" data-id="' + item.id + '"><div class="menu__ico">' + item.icon + '</div><div class="menu__text">' + item.title + '</div></li>');
+                        el.on('hover:enter', function () {
+                            // Открываем главную страницу плагина (первый плейлист)
+                            Lampa.Activity.push({
+                                url: lists[0].url,
+                                title: lists[0].title,
+                                component: plugin.component,
+                                id: 0,
+                                currentGroup: ''
+                            });
+                        });
+                        menu.append(el);
+                    }
+                });
+            }
+        }
+        
+        // 2. Включаем прослушку пульта
+        if (e.type === 'keydown') {
+            keydown(e);
         }
     });
-
 }
 
+// ГЛОБАЛЬНЫЙ ЗАПУСК
+if (window.appready) {
+    pluginStart();
+} else {
+    Lampa.Listener.follow('app', function (e) {
+        if (e.type == 'ready') pluginStart();
+    });
+}
 // Проверка готовности для вывода в меню
 if (window.appready) pluginStart();
 else Lampa.Listener.follow('app', function (e) { if (e.type == 'ready') pluginStart(); });
