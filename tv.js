@@ -1,5 +1,5 @@
 /*
-UPDATED 30.12.2025 fix
+UPDATED 30.12.2025
 */
 ;(function () {
 'use strict';
@@ -772,7 +772,9 @@ function catchupUrl(url, type, source) {
                 up: function () { Lampa.Controller.toggle('head'); },
                 back: Lampa.Activity.backward
             });
+
             Lampa.Controller.toggle('content');
+            this.emit('start');
         };
 
         this.pause = function () {};
@@ -1223,6 +1225,13 @@ function pluginStart() {
             menu.append(lists[i].menuEl);
         }
     }
+
+    Lampa.Listener.follow('app', function (e) {
+        if (e.type == 'keydown') {
+            keydown(e); // Теперь при нажатии кнопки будет вызываться твоя функция
+        }
+    });
+
 }
 
 // Проверка готовности для вывода в меню
