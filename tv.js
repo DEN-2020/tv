@@ -1,5 +1,5 @@
 /*
-UPDATED 30.12.2025 fix
+UPDATED 30.12.2025 
 */
 ;(function () {
 'use strict';
@@ -1109,57 +1109,51 @@ function configurePlaylist(i) {
 
 // --- ИСПРАВЛЕННЫЙ БЛОК РЕГИСТРАЦИИ И ЗАПУСКА ---
 
-// 1. ИСПРАВЛЕННАЯ ФУНКЦИЯ (Добавлена проверка и правильная структура)
+// --- ПОЛНОСТЬЮ ИСПРАВЛЕННЫЙ БЛОК РЕГИСТРАЦИИ ---
+
 function addSettingsFields() {
-    // Проверяем, что API настроек доступно
     if (typeof Lampa.SettingsApi !== 'undefined' && Lampa.SettingsApi.addParam) {
-        
-        // Обязательно проверяем, чтобы первым аргументом шел объект с полем component
-        // Lampa использует его как ключ для группировки настроек
-        
         try {
-            Lampa.SettingsApi.addParam(plugin, {
-                title: 'Использовать прокси',
-                name: 'hack_tv_proxy_enabled',
-                type: 'boolean',
-                default: false
+            // Исправленный формат: один объект в качестве аргумента
+            Lampa.SettingsApi.addParam({
+                component: plugin.component,
+                param: {
+                    name: 'hack_tv_proxy_enabled',
+                    type: 'trigger', // в новом API 'trigger' заменяет 'boolean'
+                    default: false
+                },
+                field: {
+                    name: 'Использовать прокси',
+                    description: 'Пропускать запросы через ваш локальный сервер'
+                }
             });
 
-            Lampa.SettingsApi.addParam(plugin, {
-                title: 'Адрес сервера прокси',
-                name: 'hack_tv_proxy_address',
-                type: 'input',
-                default: 'http://192.168.2.122:7777'
+            Lampa.SettingsApi.addParam({
+                component: plugin.component,
+                param: {
+                    name: 'hack_tv_proxy_address',
+                    type: 'input',
+                    default: 'http://192.168.2.122:7777'
+                },
+                field: {
+                    name: 'Адрес сервера прокси',
+                    description: 'Введите IP вашего компьютера'
+                }
             });
         } catch(e) {
-            console.log('Hack TV: Ошибка при добавлении параметров', e);
+            console.error('Hack TV: Ошибка в addParam', e);
         }
     }
 }
 
-// 2. ИСПРАВЛЕННЫЙ ЗАПУСК (Ждем полной готовности всех модулей)
-// Ошибка 'type' часто лезет, когда appready уже true, но SettingsApi еще не проинициализировал плагин
-Lampa.Listener.follow('app', function (e) {
-    if (e.type == 'ready') {
-        // Даем небольшую задержку, чтобы SettingsApi успел подхватить плагин
-        setTimeout(function(){
-            addSettingsFields();
-        }, 200);
-    }
-});
-
-// 3. Запуск регистрации настроек
-if (window.appready) addSettingsFields();
-else Lampa.Listener.follow('app', function (e) { if (e.type == 'ready') addSettingsFields(); });
-
-// 4. Отрисовка кнопки в Настройках -> Плагины
+// Слушатель для отрисовки пункта в Настройки -> Плагины
 Lampa.Settings.listener.follow('open', function (e) {
     if (e.name === 'plugins') {
         setTimeout(function(){
             if ($('.settings-param[data-name="' + plugin.component + '"]').length) return;
-            var item = $('<div class="settings-param selector" data-type="open" data-name="' + plugin.component + '"><div class="settings-param__name">' + plugin.name + '</div><div class="settings-param__value">Настройки прокси и плейлистов</div></div>');
+            var item = $('<div class="settings-param selector" data-type="open" data-name="' + plugin.component + '"><div class="settings-param__name">' + plugin.name + '</div><div class="settings-param__value">Настройки прокси</div></div>');
             item.on('hover:enter', function () {
-                Lampa.SettingsApi.show(plugin);
+                Lampa.SettingsApi.show(plugin.component); // Передаем строку компонента
             });
             $('.settings-list').append(item);
             Lampa.Controller.active().toggle();
@@ -1167,37 +1161,41 @@ Lampa.Settings.listener.follow('open', function (e) {
     }
 });
 
-// 5. Регистрация кнопок и плейлистов (Вместо сломанного цикла FOR)
+// Единый запуск после готовности
+if (window.appready) {
+    addSettingsFields();
+} else {
+    Lampa.Listener.follow('app', function (e) {
+        if (e.type == 'ready') addSettingsFields();
+    });
+}
+
+// Регистрация плейлистов
 configurePlaylist(0);
 configurePlaylist(1);
 
-// 6. Установка и вид
-addSettings('click', { title: 'Установить Hack TV', name: 'install_button' }, function() {
-    Lampa.Plugins.add({ url: 'https://den-2020.github.io/tv/tv.js', status: 1, name: 'Hack TV' });
-    Lampa.Noty.show('Плагин установлен!');
-    setTimeout(function(){ window.location.reload(); }, 2000);
-});
-
-addSettings('trigger', { title: langGet('square_icons'), name: 'square_icons', default: false });
-addSettings('trigger', { title: langGet('contain_icons'), name: 'contain_icons', default: true });
-
-// 7. UID
-UID = getStorage('uid', '');
+// UID
+var UID = getStorage('uid', '');
 if (!UID) {
     UID = Lampa.Utils.uid(10).toUpperCase().replace(/(.{4})/g, '$1-');
     setStorage('uid', UID);
 }
-addSettings('title', {title: langGet('uid')});
-addSettings('static', {title: UID, description: langGet('unique_id')});
 
-// 8. Финальный запуск
+// Запуск плагина (добавление в меню)
 function pluginStart() {
     if (window['plugin_' + plugin.component + '_ready']) return;
     window['plugin_' + plugin.component + '_ready'] = true;
+    
     var menu = $('.menu .menu__list').eq(0);
     for (var i = 0; i < lists.length; i++) {
-        if (lists[i].activity.url) menu.append(lists[i].menuEl);
+        if (lists[i] && lists[i].menuEl) {
+            menu.append(lists[i].menuEl);
+        }
     }
 }
+
+// Проверка готовности для вывода в меню
+if (window.appready) pluginStart();
+else Lampa.Listener.follow('app', function (e) { if (e.type == 'ready') pluginStart(); });
 
 })();
