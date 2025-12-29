@@ -248,10 +248,12 @@ function prepareUrl(url, epg) {
         var proxyAddr = Lampa.Storage.get('hack_tv_proxy_address', 'http://192.168.1.50:7777');
 
         if (useProxy && proxyAddr && url.indexOf(proxyAddr) === -1) {
+            console.log('Hack TV: Отправка через прокси -> ' + url);
             var cleanAddr = proxyAddr.replace(/\/$/, "");
             return cleanAddr + '/proxy?url=' + encodeURIComponent(url);
+        } else {
+            console.log('Hack TV: Прямое подключение (без прокси)');
         }
-
         return url;
     }
 
