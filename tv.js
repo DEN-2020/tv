@@ -1,5 +1,5 @@
 /*
-UPDATED 30.12.2025 
+UPDATED 30.12.2025 fix
 */
 ;(function () {
 'use strict';
@@ -321,7 +321,7 @@ Lampa.Settings.listener.follow('open', function (e) {
         setTimeout(function(){
             var item = $('<div class="settings-param selector" data-type="open" data-name="' + plugin.component + '"><div class="settings-param__name">' + plugin.name + '</div><div class="settings-param__value">Настройки прокси</div></div>');
             item.on('hover:enter', function () {
-                Lampa.SettingsApi.show(plugin);
+                Lampa.SettingsApi.show(plugin.component); // Исправлено: передаем 'my_iptv2'
             });
             $('.settings-list').append(item);
             Lampa.Controller.active().toggle(); // Обновляем фокус
@@ -551,6 +551,7 @@ function catchupUrl(url, type, source) {
 
 
     function pluginPage(object) {
+        Lampa.Listener.add(this);
         if (object.id !== curListId) {
             catalog = {};
             listCfg = {};
@@ -614,6 +615,32 @@ function catchupUrl(url, type, source) {
                 }, function(){
                     compileList(data);
                 });
+
+                /**
+                 * Функция поиска ID программы передач по названию канала
+                 */
+                function epgIdByName(name) {
+                    if (!name) return '';
+                    
+                    // Очищаем название для лучшего поиска (нижний регистр, без лишних символов)
+                    var cleanName = name.toLowerCase()
+                        .replace(/\s/g, '')
+                        .replace(/[^\wа-яё]/gi, '')
+                        .replace('hd', '')
+                        .replace('fhd', '');
+
+                    // Если в глобальном объекте EPG есть карта сопоставлений, ищем там
+                    if (EPG.source && EPG.source.channels) {
+                        for (var id in EPG.source.channels) {
+                            var ch = EPG.source.channels[id];
+                            var chName = (ch.name || '').toLowerCase().replace(/\s/g, '').replace(/[^\wа-яё]/gi, '');
+                            if (chName === cleanName) return id;
+                        }
+                    }
+                    
+                    return '';
+                }
+
 
                 var parseList = function () {
                     if (typeof data != 'string' || data.substr(0, 7).toUpperCase() !== "#EXTM3U") {
@@ -1171,8 +1198,12 @@ if (window.appready) {
 }
 
 // Регистрация плейлистов
-configurePlaylist(0);
-configurePlaylist(1);
+// Автоматически регистрируем все плейлисты из массива lists
+if (typeof lists !== 'undefined' && lists.length) {
+    for (var i = 0; i < lists.length; i++) {
+        configurePlaylist(i);
+    }
+}
 
 // UID
 var UID = getStorage('uid', '');
