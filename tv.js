@@ -1764,27 +1764,44 @@ function configurePlaylist(i) {
 
 // --- ИСПРАВЛЕННЫЙ БЛОК РЕГИСТРАЦИИ И ЗАПУСКА ---
 
-// 1. Регистрация компонента
-Lampa.Component.add(plugin.component, pluginPage);
-
-// 2. Функция регистрации настроек в API Lampa
+// 1. ИСПРАВЛЕННАЯ ФУНКЦИЯ (Добавлена проверка и правильная структура)
 function addSettingsFields() {
-    if (typeof Lampa.SettingsApi !== 'undefined') {
-        Lampa.SettingsApi.addParam(plugin, {
-            title: 'Использовать прокси',
-            name: 'hack_tv_proxy_enabled',
-            type: 'boolean',
-            default: false
-        });
+    // Проверяем, что API настроек доступно
+    if (typeof Lampa.SettingsApi !== 'undefined' && Lampa.SettingsApi.addParam) {
+        
+        // Обязательно проверяем, чтобы первым аргументом шел объект с полем component
+        // Lampa использует его как ключ для группировки настроек
+        
+        try {
+            Lampa.SettingsApi.addParam(plugin, {
+                title: 'Использовать прокси',
+                name: 'hack_tv_proxy_enabled',
+                type: 'boolean',
+                default: false
+            });
 
-        Lampa.SettingsApi.addParam(plugin, {
-            title: 'Адрес сервера прокси',
-            name: 'hack_tv_proxy_address',
-            type: 'input',
-            default: 'http://192.168.2.122:7777'
-        });
+            Lampa.SettingsApi.addParam(plugin, {
+                title: 'Адрес сервера прокси',
+                name: 'hack_tv_proxy_address',
+                type: 'input',
+                default: 'http://192.168.2.122:7777'
+            });
+        } catch(e) {
+            console.log('Hack TV: Ошибка при добавлении параметров', e);
+        }
     }
 }
+
+// 2. ИСПРАВЛЕННЫЙ ЗАПУСК (Ждем полной готовности всех модулей)
+// Ошибка 'type' часто лезет, когда appready уже true, но SettingsApi еще не проинициализировал плагин
+Lampa.Listener.follow('app', function (e) {
+    if (e.type == 'ready') {
+        // Даем небольшую задержку, чтобы SettingsApi успел подхватить плагин
+        setTimeout(function(){
+            addSettingsFields();
+        }, 200);
+    }
+});
 
 // 3. Запуск регистрации настроек
 if (window.appready) addSettingsFields();
