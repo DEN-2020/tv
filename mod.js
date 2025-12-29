@@ -3173,6 +3173,27 @@
 
     function collaps(component, _object, prefer_dash) {
       var network = new Lampa.Reguest();
+      function setStatus(text) {
+  if (!text) return;
+
+  console.log('[ONLINE STATUS]', text);
+
+  if (this.activity && this.activity.render) {
+    this.activity.render()
+      .find('.activity__loader-text')
+      .remove();
+
+    this.activity.render()
+      .find('.activity__loader')
+      .append(
+        '<div class="activity__loader-text" ' +
+        'style="margin-top:1em;font-size:1.2em;opacity:.7;text-align:center">' +
+        text +
+        '</div>'
+      );
+  }
+}
+
       var extract = {};
       var object = _object;
       var select_title = '';
@@ -12180,14 +12201,13 @@
 
       this.search = function () {
         this.activity.loader(true);
-        this.filter({
-          source: filter_sources
-        }, {
-          source: 0
-        });
+        setStatus.call(this, 'Поиск источников…');
+
+        this.filter({ source: filter_sources }, { source: 0 });
         this.reset();
         this.find();
       };
+
 
       this.cleanTitle = function (str) {
         return str.replace(/[\s.,:;’'`!?]+/g, ' ').trim();
@@ -12291,6 +12311,7 @@
         // init auto-switch sources only once
       if (!auto_sources.length) {
         auto_sources = Object.keys(sources || {});
+        setStatus.call(this, 'Источник: ' + balanser);
         auto_index = auto_sources.indexOf(balanser);
 
         if (auto_index < 0) auto_index = 0;
@@ -12414,31 +12435,10 @@
 
               _this4.loading(false);
             }
-       } else {
 
-              console.warn('[AUTO SWITCH] empty from:', balanser);
-
+            } else {
               _this4.loading(false);
-
-              setTimeout(function () {
-
-                if (!auto_switch) {
-                  _this4.emptyForQuery(query);
-                  return;
-                }
-
-                var next = auto_sources[auto_index + 1];
-
-                if (next && auto_index + 1 < auto_sources.length && auto_index + 1 < auto_max) {
-                  auto_index++;
-                  console.warn('[AUTO SWITCH] try:', next);
-                  _this4.changeBalanser(next);
-                } else {
-                  console.warn('[AUTO SWITCH] finished');
-                  _this4.emptyForQuery(query);
-                }
-
-              }, 1200);
+              _this4.emptyForQuery(query);
             }
 
 
@@ -13244,12 +13244,23 @@
 
 
       this.emptyForQuery = function (query) {
+        if (auto_switch && auto_index < auto_sources.length - 1 && auto_index < auto_max) {
+          auto_index++;
+
+          var next = auto_sources[auto_index];
+          console.warn('[AUTO SWITCH] ->', next);
+
+          this.changeBalanser(next);
+          return;
+        }
+
         this.empty(
           Lampa.Lang.translate('online_mod_query_start') +
           ' (' + query + ') ' +
           Lampa.Lang.translate('online_mod_query_end')
         );
       };
+
 
 
 
@@ -13321,7 +13332,7 @@
       };
     }
 
-    var mod_version = '22.12.2025';
+    var mod_version = '29.12.2025';
     console.log('App', 'start address:', window.location.href);
     var isMSX = !!(window.TVXHost || window.TVXManager);
     var isTizen = navigator.userAgent.toLowerCase().indexOf('tizen') !== -1;
