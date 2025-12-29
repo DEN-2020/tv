@@ -1,7 +1,5 @@
 /*
-// https://ss-iptv.com/ru/operators/catchup
-// niklabs.com/catchup-settings/
-// http://plwxk8hl.russtv.net/iptv/00000000000000/9201/index.m3u8?utc=1666796400&lutc=1666826200
+UPDATED 29.12.2025
 */
 ;(function () {
 'use strict';
@@ -261,11 +259,12 @@ function prepareUrl(url, epg) {
 }
 
 
+// --- ДОБАВЬ ЭТОТ БЛОК ВЗАМЕН СТАРОГО ---
+
 // РЕГИСТРАЦИЯ КОМПОНЕНТА И НАСТРОЕК
 Lampa.Component.add(plugin.component, pluginPage);
-Lampa.SettingsApi.addComponent(plugin);
 
-// ДОБАВЛЕНИЕ ПУНКТОВ В МЕНЮ НАСТРОЕК
+// Функция добавления настроек в раздел "Настройки -> Плагины"
 function addSettingsFields() {
     Lampa.SettingsApi.addParam(plugin, {
         title: 'Использовать прокси',
@@ -278,10 +277,28 @@ function addSettingsFields() {
         title: 'Адрес сервера прокси',
         name: 'hack_tv_proxy_address',
         type: 'input',
-        default: 'http://192.168.1.50:7777'
+        default: 'http://192.168.1.50:7777',
+        placeholder: 'http://IP:PORT'
     });
 }
+
+// Слушатель для отрисовки кнопки настроек в меню Lampa
+Lampa.Settings.listener.follow('open', function (e) {
+    if (e.name === 'plugins') {
+        // Проверяем, если меню плагина еще нет, добавляем кнопку
+        setTimeout(function(){
+            var item = $('<div class="settings-param selector" data-type="open" data-name="' + plugin.component + '"><div class="settings-param__name">' + plugin.name + '</div><div class="settings-param__value">Настройки прокси</div></div>');
+            item.on('hover:enter', function () {
+                Lampa.SettingsApi.show(plugin);
+            });
+            $('.settings-list').append(item);
+            Lampa.Controller.active().toggle(); // Обновляем фокус
+        }, 50);
+    }
+});
+
 addSettingsFields();
+// --- КОНЕЦ БЛОКА ---
 
 function catchupUrl(url, type, source) {
             type = (type || '').toLowerCase();
