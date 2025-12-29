@@ -1762,59 +1762,64 @@ function configurePlaylist(i) {
 }
 
 
-// 1. КНОПКА УСТАНОВКИ
-addSettings('click', {
-    title: 'Установить Hack TV',
-    description: 'Нажми, чтобы Лампа запомнила этот плагин с твоего GitHub',
-    name: 'install_button'
-}, function() {
-    var my_url = 'https://den-2020.github.io/tv/tv.js';
-    Lampa.Plugins.add({
-        url: my_url,
-        status: 1,
-        name: 'Hack TV Custom',
-        author: 'Me'
-    });
-    Lampa.Noty.show('Плагин установлен в систему!');
+// --- ИСПРАВЛЕННЫЙ БЛОК РЕГИСТРАЦИИ И ЗАПУСКА ---
+
+// 1. Регистрация компонента
+Lampa.Component.add(plugin.component, pluginPage);
+
+// 2. Функция регистрации настроек в API Lampa
+function addSettingsFields() {
+    if (typeof Lampa.SettingsApi !== 'undefined') {
+        Lampa.SettingsApi.addParam(plugin, {
+            title: 'Использовать прокси',
+            name: 'hack_tv_proxy_enabled',
+            type: 'boolean',
+            default: false
+        });
+
+        Lampa.SettingsApi.addParam(plugin, {
+            title: 'Адрес сервера прокси',
+            name: 'hack_tv_proxy_address',
+            type: 'input',
+            default: 'http://192.168.2.122:7777'
+        });
+    }
+}
+
+// 3. Запуск регистрации настроек
+if (window.appready) addSettingsFields();
+else Lampa.Listener.follow('app', function (e) { if (e.type == 'ready') addSettingsFields(); });
+
+// 4. Отрисовка кнопки в Настройках -> Плагины
+Lampa.Settings.listener.follow('open', function (e) {
+    if (e.name === 'plugins') {
+        setTimeout(function(){
+            if ($('.settings-param[data-name="' + plugin.component + '"]').length) return;
+            var item = $('<div class="settings-param selector" data-type="open" data-name="' + plugin.component + '"><div class="settings-param__name">' + plugin.name + '</div><div class="settings-param__value">Настройки прокси и плейлистов</div></div>');
+            item.on('hover:enter', function () {
+                Lampa.SettingsApi.show(plugin);
+            });
+            $('.settings-list').append(item);
+            Lampa.Controller.active().toggle();
+        }, 50);
+    }
+});
+
+// 5. Регистрация кнопок и плейлистов (Вместо сломанного цикла FOR)
+configurePlaylist(0);
+configurePlaylist(1);
+
+// 6. Установка и вид
+addSettings('click', { title: 'Установить Hack TV', name: 'install_button' }, function() {
+    Lampa.Plugins.add({ url: 'https://den-2020.github.io/tv/tv.js', status: 1, name: 'Hack TV' });
+    Lampa.Noty.show('Плагин установлен!');
     setTimeout(function(){ window.location.reload(); }, 2000);
 });
 
-// 2. НАСТРОЙКИ ВИДА
-addSettings('trigger', {
-    title: langGet('square_icons'),
-    name: 'square_icons',
-    default: false,
-    onChange: function(v){ $('.my_iptv2.category-full').toggleClass('square_icons', v === 'true'); }
-});
+addSettings('trigger', { title: langGet('square_icons'), name: 'square_icons', default: false });
+addSettings('trigger', { title: langGet('contain_icons'), name: 'contain_icons', default: true });
 
-addSettings('trigger', {
-    title: langGet('contain_icons'),
-    name: 'contain_icons',
-    default: true,
-    onChange: function(v){ $('.my_iptv2.category-full').toggleClass('contain_icons', v === 'true'); }
-});
-
-// 3. НАСТРОЙКИ ПРОКСИ (Boolean заставляет появиться переключатель Да/Нет)
-addSettings('boolean', {
-    title: 'Использовать прокси',
-    description: 'Пропускать запросы через ваш локальный сервер',
-    name: 'hack_tv_proxy_enabled',
-    default: false
-});
-
-addSettings('input', {
-    title: 'Адрес сервера прокси',
-    description: 'Введите IP вашего компьютера (например: http://192.168.2.122:7777)',
-    name: 'hack_tv_proxy_address',
-    default: 'http://192.168.2.122:7777'
-});
-
-// 4. ГЕНЕРАЦИЯ ПЛЕЙЛИСТОВ
-for (var i=0; i <= lists.length; i++) {
-    i = configurePlaylist(i);
-}
-
-// 5. UID
+// 7. UID
 UID = getStorage('uid', '');
 if (!UID) {
     UID = Lampa.Utils.uid(10).toUpperCase().replace(/(.{4})/g, '$1-');
@@ -1823,17 +1828,17 @@ if (!UID) {
 addSettings('title', {title: langGet('uid')});
 addSettings('static', {title: UID, description: langGet('unique_id')});
 
-// --- ЗАПУСК ПЛАГИНА ---
+// 8. Финальный запуск
 function pluginStart() {
-    if (!!window['plugin_' + plugin.component + '_ready']) return;
+    if (window['plugin_' + plugin.component + '_ready']) return;
     window['plugin_' + plugin.component + '_ready'] = true;
     var menu = $('.menu .menu__list').eq(0);
     for (var i = 0; i < lists.length; i++) {
-        menu.append(lists[i].menuEl);
+        if (lists[i].activity.url) menu.append(lists[i].menuEl);
     }
 }
 
-if (!!window.appready) pluginStart();
+if (window.appready) pluginStart();
 else Lampa.Listener.follow('app', function(e){ if (e.type === 'ready') pluginStart(); });
 
 })();
