@@ -1798,30 +1798,31 @@ function epgRender(epgId) {
 
     
     // --- ЗАПУСК ПЛАГИНА ---
-// --- ИСПРАВЛЕННЫЙ БЛОК ЗАПУСКА (ЗАМЕНИТЬ ОТ pluginStart ДО КОНЦА) ---
+// --- ЗАПУСК ПЛАГИНА (ПК, ТВ, ANDROID + НАСТРОЙКИ) ---
     function pluginStart() {
-        // 1. ПРОВЕРКА НА ДУБЛИКАТЫ (ВАЖНО ДЛЯ ТВОЕЙ СБОРКИ)
+        // Проверка, чтобы не запускать плагин дважды
         if (window.hack_tv_ready) return;
         window.hack_tv_ready = true;
 
         var plugin_id = 'hack_tv_unique';
 
-        // Чистим старые кнопки перед созданием
+        // 1. ОЧИСТКА ДУБЛИКАТОВ (Удаляем старые кнопки, если они были)
         $('[data-plugin-id="' + plugin_id + '"]').remove();
         $('.menu__item').each(function() {
             if ($(this).text().includes(plugin.name)) $(this).remove();
         });
 
-        UID = getSettings('uid'); // Используем твою функцию настроек
+        // Работа с UID устройства
+        UID = Lampa.Storage.get('uid', '');
         if (!UID) {
             UID = Lampa.Utils.uid(10).toUpperCase().replace(/(.{4})/g, '$1-');
             Lampa.Storage.set('uid', UID);
         }
 
-        // Регистрируем компонент
+        // Регистрация основного компонента плагина
         Lampa.Component.add(plugin.component, pluginPage);
 
-        // 2. ДОБАВЛЯЕМ В ЛЕВОЕ МЕНЮ (ТОЛЬКО ОДИН РАЗ)
+        // 2. ДОБАВЛЕНИЕ ПУНКТА В ЛЕВОЕ МЕНЮ
         var menu_item = $('<li class="menu__item selector" data-plugin-id="' + plugin_id + '">' +
             '<div class="menu__ico">' + plugin.icon + '</div>' +
             '<div class="menu__text">' + plugin.name + '</div>' +
@@ -1836,12 +1837,13 @@ function epgRender(epgId) {
             });
         });
 
-        // Вставляем в основное меню
         $('.menu__list').first().append(menu_item);
 
-        // 3. ДОБАВЛЯЕМ В ПРАВОЕ МЕНЮ (НАСТРОЙКИ)
-        // Используем setInterval, так как твоя Лампа на ПК капризна к моменту отрисовки
+        // 3. ДОБАВЛЕНИЕ ПУНКТА В НАСТРОЙКИ (СПРАВА)
         setInterval(function() {
+            var settings_panel = $('.settings__body .scroll__body');
+            
+            // Если настройки открыты и нашей кнопки там еще нет
             if (($('.settings').hasClass('settings--open') || $('.settings').is(':visible')) && 
                 $('.settings-folder[data-plugin-id="' + plugin_id + '"]').length === 0) {
                 
@@ -1851,26 +1853,71 @@ function epgRender(epgId) {
                 '</div>');
 
                 settings_item.on('hover:enter', function() {
-                    Lampa.Noty.show('Настройки Hack TV активны');
+                    // Вызов меню выбора настроек внутри Лампы
+                    Lampa.Select.show({
+                        title: 'Настройки Hack TV',
+                        items: [
+                            {
+                                title: 'Использовать Прокси',
+                                subtitle: Lampa.Storage.get('hack_tv_proxy_enabled', 'false') === 'true' ? 'Включено' : 'Выключено',
+                                status: Lampa.Storage.get('hack_tv_proxy_enabled', 'false') === 'true',
+                                action: 'proxy_toggle'
+                            },
+                            {
+                                title: 'Адрес Прокси (IP и Порт)',
+                                subtitle: Lampa.Storage.get('hack_tv_proxy_address', 'http://192.168.1.50:7777'),
+                                action: 'proxy_address'
+                            },
+                            {
+                                title: 'ID вашего устройства (UID)',
+                                subtitle: UID,
+                                action: 'copy_uid'
+                            }
+                        ],
+                        onSelect: function(item) {
+                            if (item.action === 'proxy_toggle') {
+                                var current = Lampa.Storage.get('hack_tv_proxy_enabled', 'false') === 'true';
+                                Lampa.Storage.set('hack_tv_proxy_enabled', current ? 'false' : 'true');
+                                Lampa.Noty.show('Статус прокси изменен');
+                            }
+                            if (item.action === 'proxy_address') {
+                                Lampa.Input.show({
+                                    title: 'Введите IP и Порт прокси',
+                                    value: Lampa.Storage.get('hack_tv_proxy_address', 'http://192.168.1.50:7777'),
+                                    free: true,
+                                    onSave: function(value) {
+                                        Lampa.Storage.set('hack_tv_proxy_address', value);
+                                        Lampa.Noty.show('Адрес прокси сохранен');
+                                    }
+                                });
+                            }
+                            // После выбора возвращаем фокус в настройки
+                            Lampa.Controller.toggle('settings');
+                        },
+                        onBack: function() {
+                            Lampa.Controller.toggle('settings');
+                        }
+                    });
                 });
 
-                // Ищем кнопку "Остальное" (more) чтобы встать рядом
-                var target = $('.settings__body .scroll__body [data-component="more"]').parent();
+                // Вставляем кнопку в нужное место (рядом с кнопкой "Остальное")
+                var target = settings_panel.find('[data-component="more"]').parent();
                 if (target.length) {
                     target.append(settings_item);
                 } else {
-                    $('.settings__body .scroll__body > div').first().append(settings_item);
+                    settings_panel.find('> div').first().append(settings_item);
                 }
                 
+                // Обновляем контроллер навигации
                 if (Lampa.Controller.update) Lampa.Controller.update();
             }
         }, 1000);
 
-        // Твой стандартный слушатель кнопок пульта
+        // Слушатель кнопок пульта (для Android TV и переключения каналов)
         Lampa.Listener.follow('keydown', keydown);
     }
 
-    // БЕЗОПАСНЫЙ ЗАПУСК
+    // Запуск плагина после готовности приложения
     if (window.appready) pluginStart();
     else Lampa.Listener.follow('app', function (e) { if (e.type == 'ready') pluginStart(); });
 
