@@ -1,4 +1,4 @@
-/*
+/* updated 29.12.2025 18.32
 // https://ss-iptv.com/ru/operators/catchup
 // niklabs.com/catchup-settings/
 // http://plwxk8hl.russtv.net/iptv/00000000000000/9201/index.m3u8?utc=1666796400&lutc=1666826200
@@ -1745,35 +1745,20 @@ if (!UID) {
 }
 addSettings('title', {title: langGet('uid')});
 addSettings('static', {title: UID, description: langGet('unique_id')});
-//~ Готовим настройки
-Lampa.Settings.listener.follow('open', function (e) { 
- if (e.name == 'main') {
-   setTimeout(function() {
-     $('div[data-component="my_iptv2"]').remove();
-   }, 0)
- }
-});
-function pluginStart() {
-    if (!!window['plugin_' + plugin.component + '_ready']) return;
-    window['plugin_' + plugin.component + '_ready'] = true;
-    var menu = $('.menu .menu__list').eq(0);
-    for (var i=0; i < lists.length; i++) menu.append(lists[i].menuEl);
-}
- 
-if (!!window.appready) pluginStart();
-else Lampa.Listener.follow('app', function(e){if (e.type === 'ready') pluginStart()});
 
-// --- ДОБАВЛЯЕМ МЕНЮ НАСТРОЕК В ЛАМПУ ---
-Lampa.Settings.listener.follow('open', function (e) {
-    if (e.name == 'main') {
-        setTimeout(function() {
-            var field = $('<div class="settings-folder selector" data-name="hack_tv_settings" data-children="true">' +
-                '<div class="settings-folder__icon"><svg height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg" fill="currentColor"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.13,5.91,7.62,6.29L5.23,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.72,8.87 c-0.11,0.2-0.06,0.47,0.12,0.61l2.03,1.58C4.84,11.36,4.81,11.68,4.81,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg></div>' +
-                '<div class="settings-folder__title">Настройки Hack TV</div>' +
-                '</div>');
-            
-            field.on('hover:enter', function() {
-                var items = [
+// --- УЛУЧШЕННОЕ МЕНЮ НАСТРОЕК ---
+function addHackSettings() {
+    // Проверяем, чтобы не добавить кнопку дважды
+    if ($('.settings__content').length && !$('.js-hack-settings').length) {
+        var field = $('<div class="settings-folder selector js-hack-settings" data-name="hack_tv_settings" data-children="true">' +
+            '<div class="settings-folder__icon"><svg height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg" fill="currentColor"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.13,5.91,7.62,6.29L5.23,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.72,8.87 c-0.11,0.2-0.06,0.47,0.12,0.61l2.03,1.58C4.84,11.36,4.81,11.68,4.81,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg></div>' +
+            '<div class="settings-folder__title">Настройки Hack TV</div>' +
+            '</div>');
+
+        field.on('hover:enter', function() {
+            Lampa.Select.show({
+                title: 'Параметры прокси',
+                items: [
                     {
                         title: 'Использовать прокси (ПК)',
                         description: 'Включите ТОЛЬКО если на ПК запущен server.js',
@@ -1789,21 +1774,42 @@ Lampa.Settings.listener.follow('open', function (e) {
                         type: 'input',
                         default: 'http://localhost:7777'
                     }
-                ];
-                Lampa.Select.show({
-                    title: 'Параметры прокси',
-                    items: items,
-                    onSelect: function(item) {
-                        Lampa.Storage.set(item.name, item.value);
-                    },
-                    onBack: function() {
-                        Lampa.Controller.toggle('settings_main');
-                    }
-                });
+                ],
+                onSelect: function(item) {
+                    Lampa.Storage.set(item.name, item.value);
+                },
+                onBack: function() {
+                    Lampa.Controller.toggle('settings_main');
+                }
             });
-            $('.settings__content').append(field);
+        });
+        $('.settings__content').append(field);
+    }
+}
+
+// Слушатель открытия настроек
+Lampa.Settings.listener.follow('open', function (e) {
+    if (e.name == 'main') {
+        // Убираем старый компонент если он мешает и добавляем наши настройки
+        setTimeout(function() {
+            $('div[data-component="my_iptv2"]').remove();
+            addHackSettings();
         }, 50);
     }
 });
-})(); // Самый конец файла
+
+function pluginStart() {
+    if (!!window['plugin_' + plugin.component + '_ready']) return;
+    window['plugin_' + plugin.component + '_ready'] = true;
+    var menu = $('.menu .menu__list').eq(0);
+    for (var i=0; i < lists.length; i++) menu.append(lists[i].menuEl);
+}
+
+if (!!window.appready) pluginStart();
+else Lampa.Listener.follow('app', function(e){if (e.type === 'ready') pluginStart()});
+
+for (var i=0; i <= lists.length; i++) i = configurePlaylist(i);
+
+})();
+
 
