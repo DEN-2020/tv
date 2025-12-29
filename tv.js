@@ -1,4 +1,4 @@
-/* updated 29.12.2025 18.32
+/*
 // https://ss-iptv.com/ru/operators/catchup
 // niklabs.com/catchup-settings/
 // http://plwxk8hl.russtv.net/iptv/00000000000000/9201/index.m3u8?utc=1666796400&lutc=1666826200
@@ -1746,12 +1746,11 @@ if (!UID) {
 addSettings('title', {title: langGet('uid')});
 addSettings('static', {title: UID, description: langGet('unique_id')});
 
-// --- УЛУЧШЕННОЕ МЕНЮ НАСТРОЕК ---
+// --- ДОБАВЛЯЕМ КНОПКУ НАСТРОЕК В ОБЩЕЕ МЕНЮ ---
 function addHackSettings() {
-    // Проверяем, чтобы не добавить кнопку дважды
     if ($('.settings__content').length && !$('.js-hack-settings').length) {
         var field = $('<div class="settings-folder selector js-hack-settings" data-name="hack_tv_settings" data-children="true">' +
-            '<div class="settings-folder__icon"><svg height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg" fill="currentColor"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.13,5.91,7.62,6.29L5.23,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.72,8.87 c-0.11,0.2-0.06,0.47,0.12,0.61l2.03,1.58C4.84,11.36,4.81,11.68,4.81,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg></div>' +
+            '<div class="settings-folder__icon"><svg height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg" fill="currentColor"><path d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.35 19.43,11.03L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.97 19.05,5.05L16.56,6.05C16.04,5.66 15.47,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.53,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.97 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11.03C4.53,11.35 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.95C7.96,18.34 8.53,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.47,18.68 16.04,18.34 16.56,17.95L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z" /></svg></div>' +
             '<div class="settings-folder__title">Настройки Hack TV</div>' +
             '</div>');
 
@@ -1759,45 +1758,25 @@ function addHackSettings() {
             Lampa.Select.show({
                 title: 'Параметры прокси',
                 items: [
-                    {
-                        title: 'Использовать прокси (ПК)',
-                        description: 'Включите ТОЛЬКО если на ПК запущен server.js',
-                        name: 'hack_tv_proxy_enabled',
-                        type: 'select',
-                        values: { 'true': 'Включено', 'false': 'Выключено' },
-                        default: 'false'
-                    },
-                    {
-                        title: 'Адрес прокси-сервера',
-                        description: 'IP вашего компьютера (например: http://192.168.1.50:7777)',
-                        name: 'hack_tv_proxy_address',
-                        type: 'input',
-                        default: 'http://localhost:7777'
-                    }
+                    { title: 'Использовать прокси (ПК)', name: 'hack_tv_proxy_enabled', type: 'select', values: { 'true': 'Включено', 'false': 'Выключено' }, default: 'false' },
+                    { title: 'Адрес прокси (с http://)', name: 'hack_tv_proxy_address', type: 'input', default: 'http://localhost:7777' }
                 ],
-                onSelect: function(item) {
-                    Lampa.Storage.set(item.name, item.value);
-                },
-                onBack: function() {
-                    Lampa.Controller.toggle('settings_main');
-                }
+                onSelect: function(item) { Lampa.Storage.set(item.name, item.value); },
+                onBack: function() { Lampa.Controller.toggle('settings_main'); }
             });
         });
         $('.settings__content').append(field);
     }
 }
 
-// Слушатель открытия настроек
-Lampa.Settings.listener.follow('open', function (e) {
-    if (e.name == 'main') {
-        // Убираем старый компонент если он мешает и добавляем наши настройки
-        setTimeout(function() {
-            $('div[data-component="my_iptv2"]').remove();
-            addHackSettings();
-        }, 50);
-    }
+Lampa.Settings.listener.follow('open', function (e) { 
+ if (e.name == 'main') {
+   setTimeout(function() {
+     $('div[data-component="my_iptv2"]').remove();
+     addHackSettings(); // Добавляем нашу кнопку
+   }, 50)
+ }
 });
-
 function pluginStart() {
     if (!!window['plugin_' + plugin.component + '_ready']) return;
     window['plugin_' + plugin.component + '_ready'] = true;
