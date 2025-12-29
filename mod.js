@@ -1,4 +1,4 @@
-//29.12.2025 - Fix
+//29.12.2025 - Fix var auto_max = 2; // максимум попыток
 
 (function () {
     'use strict';
@@ -3173,26 +3173,7 @@
 
     function collaps(component, _object, prefer_dash) {
       var network = new Lampa.Reguest();
-      function setStatus(text) {
-  if (!text) return;
 
-  console.log('[ONLINE STATUS]', text);
-
-  if (this.activity && this.activity.render) {
-    this.activity.render()
-      .find('.activity__loader-text')
-      .remove();
-
-    this.activity.render()
-      .find('.activity__loader')
-      .append(
-        '<div class="activity__loader-text" ' +
-        'style="margin-top:1em;font-size:1.2em;opacity:.7;text-align:center">' +
-        text +
-        '</div>'
-      );
-  }
-}
 
       var extract = {};
       var object = _object;
@@ -11793,15 +11774,36 @@
     var default_balanser = 'vibix';
 
     function component(object) {
+
+
       var network = new Lampa.Reguest();
       // === AUTO SOURCE SWITCH ===
       var auto_switch = Lampa.Storage.field('online_auto_switch') !== false; // default ON
       var auto_index = 0;
       var auto_sources = [];
-      var auto_max = 4; // максимум попыток
+      var auto_max = 2; // максимум попыток
 
       // === AUTO SOURCE SWITCH FUNCTION ===
 
+      this.setStatus = function (text) {
+        if (!text) return;
+
+        console.log('[ONLINE STATUS]', text);
+
+        if (this.activity && this.activity.render) {
+          var root = this.activity.render();
+          var loader = root.find('.activity__loader');
+          if (!loader.length) return;
+          root.find('.activity__loader-text').remove();
+
+          loader.append(
+            '<div class="activity__loader-text" ' +
+            'style="margin-top:1em;font-size:1.1em;opacity:.7;text-align:center">' +
+            text +
+            '</div>'
+          );
+        }
+      };
 
 
       var scroll = new Lampa.Scroll({
@@ -12201,7 +12203,7 @@
 
       this.search = function () {
         this.activity.loader(true);
-        setStatus.call(this, 'Поиск источников…');
+        this.setStatus('Поиск источников…');
 
         this.filter({ source: filter_sources }, { source: 0 });
         this.reset();
@@ -12311,7 +12313,7 @@
         // init auto-switch sources only once
       if (!auto_sources.length) {
         auto_sources = Object.keys(sources || {});
-        setStatus.call(this, 'Источник: ' + balanser);
+        this.setStatus('Источник: ' + balanser);
         auto_index = auto_sources.indexOf(balanser);
 
         if (auto_index < 0) auto_index = 0;
@@ -12905,7 +12907,8 @@
 
 
       this.loading = function (status) {
-        if (status) this.activity.loader(true);else {
+        if (status) this.activity.loader(true);
+        else {
           this.activity.loader(false);
           if (Lampa.Activity.active().activity === this.activity && this.inActivity()) this.activity.toggle();
         }
@@ -13231,12 +13234,20 @@
        */
 
 
-      this.empty = function (msg) {
+    this.empty = function (msg) {
         var empty = Lampa.Template.get('list_empty');
         if (msg) empty.find('.empty__descr').text(msg);
         scroll.append(empty);
+
         this.loading(false);
-      };
+
+        if (this.activity && this.activity.render) {
+          this.activity.render()
+            .find('.activity__loader-text')
+            .remove();
+        }
+    };
+
 
       /**
        * Показать пустой результат по ключевому слову
@@ -13248,6 +13259,7 @@
           auto_index++;
 
           var next = auto_sources[auto_index];
+          this.setStatus('Нет результата → ' + next);
           console.warn('[AUTO SWITCH] ->', next);
 
           this.changeBalanser(next);
