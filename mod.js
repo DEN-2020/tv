@@ -1,4 +1,4 @@
-//29.12.2025 - Fix var auto_max = 2; // максимум попыток
+//29.12.2025
 
 (function () {
     'use strict';
@@ -4274,11 +4274,12 @@
             network.timeout(15000);
             network["native"](component.proxyLink(url, prox, prox_enc, 'enc2'), function (found) {
               if (found && found.user_data) {
+                has_result = true;
                 window.mod_filmix.max_qualitie = 720;
                 if (found.user_data.is_pro) window.mod_filmix.max_qualitie = 1080;
                 if (found.user_data.is_pro_plus) window.mod_filmix.max_qualitie = 2160;
               }
-
+              
               end_search();
             }, function (a, c) {
               end_search();
@@ -11779,6 +11780,7 @@
       var network = new Lampa.Reguest();
       // === AUTO SOURCE SWITCH ===
       var auto_switch = Lampa.Storage.field('online_auto_switch') !== false; // default ON
+      var has_result = false;
       var auto_index = 0;
       var auto_sources = [];
       var auto_max = 2; // максимум попыток
