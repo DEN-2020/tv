@@ -1798,17 +1798,16 @@ function epgRender(epgId) {
 
     
     // --- ЗАПУСК ПЛАГИНА ---
-// --- ЗАПУСК ПЛАГИНА (ФИНАЛЬНАЯ ИСПРАВЛЕННАЯ ВЕРСИЯ) ---
+// --- ИСПРАВЛЕННЫЙ ЗАПУСК ПЛАГИНА ---
     function pluginStart() {
         if (window.hack_tv_ready) return;
         window.hack_tv_ready = true;
 
         var plugin_id = 'hack_tv_unique';
 
-        // 1. ЧИСТИМ ДУБЛИКАТЫ ПЕРЕД СТАРТОМ
+        // Удаляем старые элементы, если они остались
         $('[data-plugin-id="' + plugin_id + '"]').remove();
 
-        // Генерация UID
         UID = Lampa.Storage.get('uid', '');
         if (!UID) {
             UID = Lampa.Utils.uid(10).toUpperCase().replace(/(.{4})/g, '$1-');
@@ -1817,7 +1816,7 @@ function epgRender(epgId) {
 
         Lampa.Component.add(plugin.component, pluginPage);
 
-        // 2. ДОБАВЛЕНИЕ В ЛЕВОЕ МЕНЮ (ОДИН РАЗ)
+        // 1. КНОПКА СЛЕВА
         var menu_item = $('<li class="menu__item selector" data-plugin-id="' + plugin_id + '">' +
             '<div class="menu__ico">' + plugin.icon + '</div>' +
             '<div class="menu__text">' + plugin.name + '</div>' +
@@ -1834,71 +1833,76 @@ function epgRender(epgId) {
 
         $('.menu__list').first().append(menu_item);
 
-        // 3. ДОБАВЛЕНИЕ В НАСТРОЙКИ (БЕЗ ДУБЛЕЙ)
+        // 2. ГРАМОТНЫЕ НАСТРОЙКИ СПРАВА
         Lampa.Settings.listener.follow('open', function (e) {
             if (e.name == 'main') {
-                var body = e.body;
-                if (body.find('.settings-folder[data-plugin-id="' + plugin_id + '"]').length == 0) {
+                if (e.body.find('.settings-folder[data-plugin-id="' + plugin_id + '"]').length == 0) {
                     var item = $('<div class="settings-folder selector" data-plugin-id="' + plugin_id + '">' +
                         '<div class="settings-folder__icon">' + plugin.icon + '</div>' +
                         '<div class="settings-folder__name">' + plugin.name + '</div>' +
                     '</div>');
 
                     item.on('hover:enter', function () {
-                        // ФУНКЦИЯ ОТКРЫТИЯ НАСТРОЕК
-                        Lampa.Select.show({
-                            title: 'Настройки Hack TV',
-                            items: [
-                                {
-                                    title: 'Использовать Прокси',
-                                    subtitle: Lampa.Storage.get('hack_tv_proxy_enabled', 'false') === 'true' ? 'Включено' : 'Выключено',
-                                    action: 'proxy_toggle'
+                        // Окно настроек
+                        var showSettings = function() {
+                            var is_enabled = Lampa.Storage.get('hack_tv_proxy_enabled', 'false') === 'true';
+                            
+                            Lampa.Select.show({
+                                title: 'Настройки Hack TV',
+                                items: [
+                                    {
+                                        title: 'Использовать Прокси',
+                                        subtitle: is_enabled ? 'Включено' : 'Выключено',
+                                        action: 'toggle'
+                                    },
+                                    {
+                                        title: 'Настроить адрес (IP:Port)',
+                                        subtitle: Lampa.Storage.get('hack_tv_proxy_address', 'http://0.0.0.0:7777'),
+                                        action: 'edit_ip'
+                                    }
+                                ],
+                                onSelect: function (a) {
+                                    if (a.action == 'toggle') {
+                                        var new_state = !(Lampa.Storage.get('hack_tv_proxy_enabled', 'false') === 'true');
+                                        Lampa.Storage.set('hack_tv_proxy_enabled', new_state ? 'true' : 'false');
+                                        Lampa.Noty.show('Прокси ' + (new_state ? 'включен' : 'выключен'));
+                                        
+                                        // Перерисовываем меню, чтобы статус обновился сразу
+                                        Lampa.Select.close();
+                                        setTimeout(showSettings, 100);
+                                    }
+                                    if (a.action == 'edit_ip') {
+                                        Lampa.Input.show({
+                                            title: 'Введите адрес (пример: http://192.168.1.10:7777)',
+                                            value: Lampa.Storage.get('hack_tv_proxy_address', ''),
+                                            free: true,
+                                            onSave: function (v) {
+                                                Lampa.Storage.set('hack_tv_proxy_address', v);
+                                                Lampa.Select.close();
+                                                setTimeout(showSettings, 100);
+                                            },
+                                            onBack: function() {
+                                                setTimeout(showSettings, 100);
+                                            }
+                                        });
+                                    }
                                 },
-                                {
-                                    title: 'IP адрес и Порт',
-                                    subtitle: Lampa.Storage.get('hack_tv_proxy_address', 'http://192.168.1.50:7777'),
-                                    action: 'proxy_address'
+                                onBack: function () {
+                                    Lampa.Controller.toggle('settings');
                                 }
-                            ],
-                            onSelect: function (a) {
-                                if (a.action == 'proxy_toggle') {
-                                    var is_on = Lampa.Storage.get('hack_tv_proxy_enabled', 'false') === 'true';
-                                    Lampa.Storage.set('hack_tv_proxy_enabled', is_on ? 'false' : 'true');
-                                    Lampa.Noty.show('Прокси: ' + (!is_on ? 'Включен' : 'Выключен'));
-                                    // Обновляем текст в меню без вылета
-                                    a.subtitle = !is_on ? 'Включено' : 'Выключено';
-                                }
-                                if (a.action == 'proxy_address') {
-                                    Lampa.Input.show({
-                                        title: 'Введите IP адрес прокси',
-                                        value: Lampa.Storage.get('hack_tv_proxy_address', 'http://192.168.1.50:7777'),
-                                        free: true,
-                                        onSave: function (v) {
-                                            Lampa.Storage.set('hack_tv_proxy_address', v);
-                                            Lampa.Noty.show('Адрес сохранен: ' + v);
-                                        },
-                                        onBack: function() {
-                                            Lampa.Controller.toggle('settings');
-                                        }
-                                    });
-                                }
-                            },
-                            onBack: function () {
-                                Lampa.Controller.toggle('settings');
-                            }
-                        });
+                            });
+                        };
+                        showSettings();
                     });
-                    body.append(item);
+                    e.body.append(item);
                     Lampa.Controller.update(); 
                 }
             }
         });
 
-        // Слушатель кнопок пульта
         Lampa.Listener.follow('keydown', keydown);
     }
 
     if (window.appready) pluginStart();
     else Lampa.Listener.follow('app', function (e) { if (e.type == 'ready') pluginStart(); });
-
 })();
