@@ -1,4 +1,4 @@
-/*
+/* updated 29.12.25 18:59
 // https://ss-iptv.com/ru/operators/catchup
 // niklabs.com/catchup-settings/
 // http://plwxk8hl.russtv.net/iptv/00000000000000/9201/index.m3u8?utc=1666796400&lutc=1666826200
@@ -1769,26 +1769,113 @@ function addHackSettings() {
     }
 }
 
-Lampa.Settings.listener.follow('open', function (e) { 
- if (e.name == 'main') {
-   setTimeout(function() {
-     $('div[data-component="my_iptv2"]').remove();
-     addHackSettings(); // Добавляем нашу кнопку
-   }, 50)
- }
-});
-function pluginStart() {
-    if (!!window['plugin_' + plugin.component + '_ready']) return;
-    window['plugin_' + plugin.component + '_ready'] = true;
-    var menu = $('.menu .menu__list').eq(0);
-    for (var i=0; i < lists.length; i++) menu.append(lists[i].menuEl);
-}
+function epgRender(epgId) {
+        var epg = (EPG[epgId] || [0, 0, []])[2];
+        if (epg === false) return;
+        var epgEl = body.find('[data-epg-id=' + epgId + '] .card__age');
+        if (!epgEl.length) return;
+        var t = Math.floor(unixtime() / 60), enableCardEpg = false, i = 0, e, p, cId, cIdEl;
+        while (epg.length && t >= (epg[0][0] + epg[0][1])) epg.shift();
+        if (epg.length) {
+            e = epg[0];
+            if (t >= e[0] && t < (e[0] + e[1])) {
+                i++;
+                enableCardEpg = true;
+                p = Math.round((unixtime() - e[0] * 60) * 100 / (e[1] * 60 || 60));
+                cId = e[0] + '_' + epgEl.length;
+                cIdEl = epgEl.data('cId') || '';
+                if (cIdEl !== cId) {
+                    epgEl.data('cId', cId);
+                    epgEl.data('progress', p);
+                    epgEl.find('.js-epgTitle').text(e[2]);
+                    epgEl.find('.js-epgProgress').css('width', p + '%');
+                    epgEl.show();
+                } else if (epgEl.data('progress') !== p) {
+                    epgEl.data('progress', p);
+                    epgEl.find('.js-epgProgress').css('width', p + '%');
+                }
+            }
+        }
+    }
 
-if (!!window.appready) pluginStart();
-else Lampa.Listener.follow('app', function(e){if (e.type === 'ready') pluginStart()});
+    // --- ФУНКЦИИ ХРАНИЛИЩА ---
+    function getStorage(name, def) {
+        var val = Lampa.Storage.get(name);
+        return typeof val !== 'undefined' && val !== null ? val : def;
+    }
 
-for (var i=0; i <= lists.length; i++) i = configurePlaylist(i);
+    function setStorage(name, val) {
+        Lampa.Storage.set(name, val);
+    }
+
+    function getSettings(name) {
+        return Lampa.Storage.field(name);
+    }
+
+    function favID(title) {
+        return Lampa.Utils.hash(title);
+    }
+
+    // --- ИНИЦИАЛИЗАЦИЯ НАСТРОЕК ---
+    function addHackSettings() {
+        if ($('.settings__content').length && !$('.js-hack-settings').length) {
+            var field = $('<div class="settings-folder selector js-hack-settings" data-name="hack_tv_settings" data-children="true">' +
+                '<div class="settings-folder__icon"><svg height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg" fill="currentColor"><path d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.35 19.43,11.03L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.97 19.05,5.05L16.56,6.05C16.04,5.66 15.47,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.53,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.97 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11.03C4.53,11.35 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.95C7.96,18.34 8.53,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.47,18.68 16.04,18.34 16.56,17.95L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z" /></svg></div>' +
+                '<div class="settings-folder__title">Настройки Hack TV</div>' +
+                '</div>');
+
+            field.on('hover:enter', function() {
+                Lampa.Select.show({
+                    title: 'Параметры прокси',
+                    items: [
+                        { title: 'Использовать прокси (ПК)', name: 'hack_tv_proxy_enabled', type: 'select', values: { 'true': 'Включено', 'false': 'Выключено' }, default: 'false' },
+                        { title: 'Адрес прокси (с http://)', name: 'hack_tv_proxy_address', type: 'input', default: 'http://localhost:7777' }
+                    ],
+                    onSelect: function(item) { Lampa.Storage.set(item.name, item.value); },
+                    onBack: function() { Lampa.Controller.toggle('settings_main'); }
+                });
+            });
+            $('.settings__content').append(field);
+        }
+    }
+
+    Lampa.Settings.listener.follow('open', function (e) { 
+        if (e.name == 'main') setTimeout(addHackSettings, 300);
+    });
+
+    // --- ЗАПУСК ПЛАГИНА ---
+    function pluginStart() {
+        if (window.hack_tv_ready) return;
+        window.hack_tv_ready = true;
+
+        UID = getStorage('uid', '');
+        if (!UID) {
+            UID = Lampa.Utils.uid(10).toUpperCase().replace(/(.{4})/g, '$1-');
+            setStorage('uid', UID);
+        }
+
+        // Регистрируем компонент
+        Lampa.Component.add(plugin.component, pluginPage);
+
+        // Добавляем пункт в меню
+        var menu_item = $('<li class="menu__item selector" data-action="' + plugin.component + '">' +
+            '<div class="menu__ico">' + plugin.icon + '</div>' +
+            '<div class="menu__text">' + plugin.name + '</div>' +
+        '</li>');
+
+        menu_item.on('hover:enter', function () {
+            Lampa.Activity.push({
+                url: 'https://raw.githubusercontent.com/blackbirdstudiorus/LoganetXIPTV/main/LoganetXA.m3u', // Твой плейлист
+                title: plugin.name,
+                component: plugin.component,
+                page: 1
+            });
+        });
+
+        $('.menu .menu__list').append(menu_item);
+    }
+
+    if (window.appready) pluginStart();
+    else Lampa.Listener.follow('app', function(e){ if (e.type === 'ready') pluginStart(); });
 
 })();
-
-
