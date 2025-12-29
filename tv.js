@@ -1609,24 +1609,21 @@ function setStorage(name, val, noListen) {
 function getSettings(name) {
     return Lampa.Storage.field(plugin.component + '_' + name);
 }
-function addSettings(type, param) {
+function addSettings(type, param, callback) { // Добавили callback
     var data = {
-	component: plugin.component,
-	param: {
-	    name: plugin.component + '_' + param.name,
-	    type: type, // select|trigger|input|title|static
-	    values: !param.values ? '' : param.values,
-	    placeholder: !param.placeholder ? '' : param.placeholder,
-	    default: (typeof param.default === 'undefined') ? '' : param.default
-	},
-	field: {
-	    name: !param.title ? (!param.name ? '' : param.name) : param.title
-	}
-    }
-    if (!!param.name) data.param.name = plugin.component + '_' + param.name;
+        component: plugin.component,
+        param: {
+            name: plugin.component + '_' + param.name,
+            type: type,
+            values: !param.values ? '' : param.values,
+            default: (typeof param.default === 'undefined') ? '' : param.default
+        },
+        field: {
+            name: !param.title ? (!param.name ? '' : param.name) : param.title
+        },
+        onChange: callback || param.onChange // Если передали функцию третьим аргументом, используем её
+    };
     if (!!param.description) data.field.description = param.description;
-    if (!!param.onChange) data.onChange = param.onChange;
-    if (!!param.onRender) data.onRender = param.onRender;
     Lampa.SettingsApi.addParam(data);
 }
 
@@ -1705,165 +1702,96 @@ function configurePlaylist(i) {
     return !activity.url ? i + 1 : i;
 }
 
-Lampa.Component.add(plugin.component, pluginPage);
-// Готовим настройки
 
+Lampa.Component.add(plugin.component, pluginPage);
+
+// --- ИНИЦИАЛИЗАЦИЯ НАСТРОЕК ---
 Lampa.SettingsApi.addComponent(plugin);
-addSettings(
-    'trigger',
-    {
-	title: langGet('square_icons'),
-	name: 'square_icons',
-	default: false,
-	onChange: function(v){
-	    $('.my_iptv2.category-full').toggleClass('square_icons', v === 'true');
-	}
+
+// 1. КНОПКА УСТАНОВКИ (Чтобы закрепить твой GitHub в Лампе)
+addSettings('click', {
+    title: 'Установить Hack TV',
+    description: 'Нажми, чтобы Лампа запомнила этот плагин с твоего GitHub',
+    name: 'install_button'
+}, function() {
+    // ВСТАВЬ ТУТ СВОЮ ССЫЛКУ (обязательно RAW)
+    var my_url = 'https://den-2020.github.io/tv/tv.js';
+
+    Lampa.Plugins.add({
+        url: my_url,
+        status: 1,
+        name: 'Hack TV Custom',
+        author: 'Me'
+    });
+
+    Lampa.Noty.show('Плагин установлен в систему!');
+    
+    setTimeout(function(){
+        window.location.reload();
+    }, 2000);
+});
+
+// 2. НАСТРОЙКИ ВИДА (Иконки)
+addSettings('trigger', {
+    title: langGet('square_icons'),
+    name: 'square_icons',
+    default: false,
+    onChange: function(v){
+        $('.my_iptv2.category-full').toggleClass('square_icons', v === 'true');
     }
-);
-addSettings(
-    'trigger',
-    {
-	title: langGet('contain_icons'),
-	description: langGet('contain_icons_desc'),
-	name: 'contain_icons',
-	default: true,
-	onChange: function(v){
-	    $('.my_iptv2.category-full').toggleClass('contain_icons', v === 'true');
-	}
+});
+
+addSettings('trigger', {
+    title: langGet('contain_icons'),
+    description: langGet('contain_icons_desc'),
+    name: 'contain_icons',
+    default: true,
+    onChange: function(v){
+        $('.my_iptv2.category-full').toggleClass('contain_icons', v === 'true');
     }
-);
-for (var i=0; i <= lists.length; i++) i = configurePlaylist(i);
+});
+
+// 3. НАСТРОЙКИ ПРОКСИ
+addSettings('trigger', {
+    title: 'Использовать прокси',
+    description: 'Пропускать запросы через ваш локальный сервер',
+    name: 'hack_tv_proxy_enabled',
+    default: false
+});
+
+addSettings('input', {
+    title: 'Адрес сервера прокси',
+    description: 'Введите IP вашего компьютера, где запущен сервер (например: http://192.168.0.15:7777)',
+    name: 'hack_tv_proxy_address',
+    default: 'http://192.168.1.50:7777'
+});
+
+// 4. ГЕНЕРАЦИЯ ПЛЕЙЛИСТОВ
+for (var i=0; i <= lists.length; i++) {
+    i = configurePlaylist(i);
+}
+
+// 5. UID
 UID = getStorage('uid', '');
 if (!UID) {
     UID = Lampa.Utils.uid(10).toUpperCase().replace(/(.{4})/g, '$1-');
-    setStorage('uid', UID);
-} else if (UID.length > 12) {
-    UID = UID.substring(0, 12);
     setStorage('uid', UID);
 }
 addSettings('title', {title: langGet('uid')});
 addSettings('static', {title: UID, description: langGet('unique_id')});
 
-// Готовим настройки
-Lampa.Settings.listener.follow('open', function (e) { 
- if (e.name == 'main') {
-   setTimeout(function() {
-     var item = $('<div class="settings-folder selector" data-component="hack_tv_settings">' +
-         '<div class="settings-folder__icon">' + plugin.icon + '</div>' +
-         '<div class="settings-folder__name">Hack TV Proxy</div>' +
-     '</div>');
-
-     item.on('hover:enter', function () {
-         Lampa.Settings.main({
-             render: function () {
-                 var body = $('<div class="settings-list"></div>');
-                 body.append(Lampa.Settings.createItem({
-                     title: 'Использовать прокси',
-                     type: 'trigger',
-                     name: 'hack_tv_proxy_enabled',
-                     default: false
-                 }));
-                 body.append(Lampa.Settings.createItem({
-                     title: 'Адрес сервера прокси',
-                     description: 'Например: http://192.168.1.50:7777',
-                     type: 'input',
-                     name: 'hack_tv_proxy_address',
-                     placeholder: 'http://...',
-                     default: 'http://192.168.1.50:7777'
-                 }));
-                 return body;
-             },
-             onBack: function () { Lampa.Controller.toggle('settings'); }
-         });
-     });
-     $('.settings-list').append(item);
-   }, 0);
- }
-});
+// --- ЗАПУСК ПЛАГИНА ---
 function pluginStart() {
-    // Стандартная проверка на повторный запуск
     if (!!window['plugin_' + plugin.component + '_ready']) return;
     window['plugin_' + plugin.component + '_ready'] = true;
 
-    // 1. Добавляем кнопки плейлистов в боковое меню (твой оригинал)
     var menu = $('.menu .menu__list').eq(0);
     for (var i = 0; i < lists.length; i++) {
         menu.append(lists[i].menuEl);
     }
-
-    // 2. Добавляем блок настроек в главное меню настроек Lampa
-    Lampa.Settings.listener.follow('open', function (e) {
-        if (e.name == 'main') {
-            var item = $('<div class="settings-folder selector" data-component="hack_tv_settings">' +
-                '<div class="settings-folder__icon">' + plugin.icon + '</div>' +
-                '<div class="settings-folder__name">Hack TV (Настройки)</div>' +
-            '</div>');
-
-            item.on('hover:enter', function () {
-                Lampa.Settings.main({
-                    render: function () {
-                        var body = $('<div class="settings-list"></div>');
-                        
-                        // Параметр ВКЛ/ВЫКЛ прокси
-                        var toggle = Lampa.Settings.createItem({
-                            title: 'Использовать прокси',
-                            description: 'Пропускать запросы через ваш сервер',
-                            type: 'trigger',
-                            name: 'hack_tv_proxy_enabled', // Должно совпадать с тем, что в prepareUrl
-                            default: false
-                        });
-
-                        // Параметр ввода IP
-                        var input = Lampa.Settings.createItem({
-                            title: 'Адрес прокси',
-                            description: 'Пример: http://192.168.1.50:7777',
-                            type: 'input',
-                            name: 'hack_tv_proxy_address', // Должно совпадать с тем, что в prepareUrl
-                            placeholder: 'http://...',
-                            default: 'http://192.168.1.50:7777'
-                        });
-
-                        body.append(toggle).append(input);
-                        return body;
-                    },
-                    onBack: function () {
-                        Lampa.Controller.toggle('settings');
-                    }
-                });
-            });
-            
-            // Вставляем наш пункт в список настроек
-            $('.settings-list').append(item);
-        }
-    });
-
-    // 3. Подключаем слушатель пульта (если он есть в твоем коде)
-    if (typeof keydown !== 'undefined') {
-        Lampa.Listener.follow('keydown', keydown);
-    }
 }
- 
+
 if (!!window.appready) pluginStart();
-else Lampa.Listener.follow('app', function(e){if (e.type === 'ready') pluginStart()});
-
-addSettings(
-    'trigger',
-    {
-        title: 'Использовать прокси',
-        description: 'Пропускать поток через ваш локальный сервер',
-        name: 'hack_tv_proxy_enabled',
-        default: false
-    }
-);
-
-addSettings(
-    'input',
-    {
-        title: 'Адрес прокси',
-        description: 'Например: http://192.168.1.50:7777',
-        name: 'hack_tv_proxy_address',
-        default: 'http://192.168.1.50:7777'
-    }
-);
+else Lampa.Listener.follow('app', function(e){ if (e.type === 'ready') pluginStart(); });
 
 })();
