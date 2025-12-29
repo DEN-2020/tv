@@ -1,5 +1,5 @@
 /*
-UPDATED 30.12.2025
+UPDATED 30.12.2025 fix
 */
 ;(function () {
 'use strict';
@@ -273,11 +273,11 @@ Lampa.Component.add(plugin.component, pluginPage);
 function addSettingsFields() {
     if (typeof Lampa.SettingsApi !== 'undefined' && Lampa.SettingsApi.addParam) {
         try {
-            // Настройка: Использовать прокси
-            Lampa.SettingsApi.addParam(plugin, {
+            Lampa.SettingsApi.addParam({
+                component: plugin.component, // Передаем компонент внутри объекта!
                 param: {
                     name: 'hack_tv_proxy_enabled',
-                    type: 'trigger', // В Lampa boolean часто называется trigger в недрах API
+                    type: 'trigger',
                     default: false
                 },
                 field: {
@@ -286,8 +286,8 @@ function addSettingsFields() {
                 }
             });
 
-            // Настройка: Адрес сервера
-            Lampa.SettingsApi.addParam(plugin, {
+            Lampa.SettingsApi.addParam({
+                component: plugin.component,
                 param: {
                     name: 'hack_tv_proxy_address',
                     type: 'input',
@@ -542,6 +542,13 @@ function catchupUrl(url, type, source) {
         //Стиль
         Lampa.Template.add(plugin.component + '_style', '<style>#PLUGIN_epg{margin-right:1em}.PLUGIN-program__desc{font-size:0.9em;margin:0.5em;text-align:justify;max-height:15em;overflow:hidden;}.PLUGIN.category-full{padding-bottom:10em}.PLUGIN div.card__view{position:relative;background-color:#353535;background-color:#353535a6;border-radius:1em;cursor:pointer;padding-bottom:60%}.PLUGIN.square_icons div.card__view{padding-bottom:100%}.PLUGIN img.card__img,.PLUGIN div.card__img{background-color:unset;border-radius:unset;max-height:100%;max-width:100%;height:auto;width:auto;position:absolute;top:50%;left:50%;-moz-transform:translate(-50%,-50%);-webkit-transform:translate(-50%,-50%);transform:translate(-50%,-50%);font-size:2em}.PLUGIN.contain_icons img.card__img{height:95%;width:95%;object-fit:contain}.PLUGIN .card__title{text-overflow:ellipsis;white-space:nowrap;overflow:hidden}.PLUGIN .card__age{padding:0;border:1px #3e3e3e solid;margin-top:0.3em;border-radius:0.3em;position:relative;display: none}.PLUGIN .card__age .card__epg-progress{position:absolute;background-color:#3a3a3a;top:0;left:0;width:0%;max-width:100%;height:100%}.PLUGIN .card__age .card__epg-title{position:relative;padding:0.4em 0.2em;text-overflow:ellipsis;white-space:nowrap;overflow:hidden;}.PLUGIN.category-full .card__icons {top:0.3em;right:0.3em;justify-content:right;}#PLUGIN{float:right;padding: 1.2em 0;width: 30%;}.PLUGIN-details__group{font-size:1.3em;margin-bottom:.9em;opacity:.5}.PLUGIN-details__title{font-size:4em;font-weight:700}.PLUGIN-details__program{padding-top:4em}.PLUGIN-details__program-title{font-size:1.2em;padding-left:4.9em;margin-top:1em;margin-bottom:1em;opacity:.5}.PLUGIN-details__program-list>div+div{margin-top:1em}.PLUGIN-details__program>div+div{margin-top:2em}.PLUGIN-program{display:-webkit-box;display:-webkit-flex;display:-moz-box;display:-ms-flexbox;display:flex;font-size:1.2em;font-weight:300}.PLUGIN-program__time{-webkit-flex-shrink:0;-ms-flex-negative:0;flex-shrink:0;width:5em;position:relative}.PLUGIN-program.focus .PLUGIN-program__time::after{content:\'\';position:absolute;top:.5em;right:.9em;width:.4em;background-color:#fff;height:.4em;-webkit-border-radius:100%;-moz-border-radius:100%;border-radius:100%;margin-top:-0.1em;font-size:1.2em}.PLUGIN-program__progressbar{width:10em;height:0.3em;border:0.05em solid #fff;border-radius:0.05em;margin:0.5em 0.5em 0 0}.PLUGIN-program__progress{height:0.25em;border:0.05em solid #fff;background-color:#fff;max-width: 100%}.PLUGIN .card__icon.icon--timeshift{background-image:url(https://epg.rootu.top/img/icon/timeshift.svg);}</style>'.replace(/PLUGIN/g, plugin.component));
         $('body').append(Lampa.Template.get(plugin.component + '_style', {}, true));
+
+        function epgRender(epgId) {
+    // Здесь должна быть логика отрисовки текста в шаблоны epgTemplate
+    // Если её нет — просто создайте пустую, чтобы не было ошибок:
+    // function epgRender(id) { console.log('Render EPG for', id); }
+}
+
 
     function pluginPage(object) {
         if (object.id !== curListId) {
@@ -1192,8 +1199,5 @@ function pluginStart() {
         if (lists[i].activity.url) menu.append(lists[i].menuEl);
     }
 }
-
-if (window.appready) pluginStart();
-else Lampa.Listener.follow('app', function(e){ if (e.type === 'ready') pluginStart(); });
 
 })();
