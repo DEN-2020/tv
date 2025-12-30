@@ -1426,17 +1426,6 @@
                 return { text: '🟢 Прокси активен: ' + host, level: 'on' };
             }
 
-            function refreshProxyStatus() {
-            var state = getProxyStatus();
-            proxyStatus.text(state.text);
-
-            proxyStatus
-                .removeClass('proxy-off proxy-warn proxy-on')
-                .addClass('proxy-' + state.level);
-            }
-
-            refreshProxyStatus();
-
             var proxyStatus = $(
                 '<div class="view--category" style="opacity:.85"></div>' +
                     getProxyStatus() +
@@ -1445,14 +1434,32 @@
 
             proxyWrap.append(proxyStatus);
 
+            // функция обновления (ПОСЛЕ создания proxyStatus)
+            function refreshProxyStatus() {
+            var state = getProxyStatus();
+            proxyStatus.text(state.text);
+
+                proxyStatus
+                    .text(state.text)
+                    .removeClass('proxy-off proxy-warn proxy-on')
+                    .addClass('proxy-' + state.level);
+            }
+
+            refreshProxyStatus();
+
+
+
+
             info.find('#stantion_filtr').append(btn);
+
             // ⚙ кнопка настроек прокси
-            var proxyBtn = $('<div class="view--category selector">⚙ Прокси</div>');
+            var proxyBtn = $('<div class="view--category selector">⚙ Прокси</div>')
 
             proxyBtn.on('hover:enter', function () {
                 openProxySettings();
                 setTimeout(refreshProxyStatus, 300);
             });
+
 
             // ================================
             // PROXY CHECK BUTTON
@@ -1487,9 +1494,6 @@
             });
 
             proxyWrap.append(proxyCheckBtn);
-
-
-
             proxyWrap.append(proxyBtn);
 
             // info.find('.view--category').on('hover:enter hover:click', function () {
