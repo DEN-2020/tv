@@ -1,5 +1,5 @@
 /*
-UPDATED 30.12.2025 fix
+UPDATED 30.12.2025 PROXI IP SERVER ADDED
 */
 ;(function () {
 'use strict';
@@ -1240,65 +1240,119 @@ if (!UID) {
     setStorage('uid', UID);
 }
 
-// Запуск плагина (добавление в меню)
-// Функция инициализации
-function pluginStart() {
-    // Проверка, чтобы не запускать дважды
-    if (window['plugin_' + plugin.component + '_ready']) return;
-    window['plugin_' + plugin.component + '_ready'] = true;
+// 1. Уникальный ID для настроек
+    var plugin_id = 'hack_tv_final';
 
-    console.log('Hack TV: Starting plugin...');
+    // 2. Регистрация компонента (чтобы не было пустых окон)
+    Lampa.Component.add(plugin_id, function (object, value) {
+        var _this = this;
+        var html = $('<div class="settings-list"></div>');
+        this.create = function () { return html; };
+        this.render = function () { return html; };
+        this.ready = function () { Lampa.Controller.enable('settings_list'); };
+    });
 
-    // 1. Добавляем кнопки в боковое меню
-    Lampa.Listener.follow('app', function (e) {
-        if (e.type == 'ready') {
-            var menu_items = [
-                {
-                    title: 'Hack TV',
-                    id: 'hack_tv_main',
-                    icon: plugin.icon
+    // 3. Функция добавления параметров (Прокси и IP) в системное хранилище
+    function addSettingsFields() {
+        if (typeof Lampa.SettingsApi !== 'undefined' && Lampa.SettingsApi.addParam) {
+            // Переключатель ПРОКСИ
+            Lampa.SettingsApi.addParam({
+                component: plugin.component,
+                param: { name: 'hack_tv_proxy_enabled', type: 'trigger', default: false },
+                field: { name: 'Использовать прокси', description: 'Для работы на ПК/Браузере' }
+            });
+            // Поле для IP
+            Lampa.SettingsApi.addParam({
+                component: plugin.component,
+                param: { name: 'hack_tv_ip', type: 'input', default: '192.168.2.122' },
+                field: { name: 'IP сервера', description: 'Введите IP вашего локального сервера' }
+            });
+        }
+    }
+
+    // 4. ГЛАВНЫЙ СЛУШАТЕЛЬ ИНТЕРФЕЙСА
+    Lampa.Settings.listener.follow('open', function (e) {
+        // Добавляем Hack TV в главный список настроек (Шестеренка)
+        if (e.name === 'main') {
+            setTimeout(function() {
+                var container = e.body.find('.scroll__body > div, .scroll__content').last();
+                if (container.length && !container.find('[data-component="'+plugin_id+'"]').length) {
+                    var btn = $('<div class="settings-folder selector" data-component="'+plugin_id+'">' +
+                        '<div class="settings-folder__icon">' + plugin.icon + '</div>' +
+                        '<div class="settings-folder__name">Hack TV (Настройки)</div>' +
+                    '</div>');
+                    btn.on('click', function () { Lampa.Settings.main(plugin_id); });
+                    container.prepend(btn);
+                    Lampa.Controller.enable('settings_list');
                 }
-            ];
+            }, 150);
+        }
 
-            // Пробуем добавить кнопку в меню
-            var menu = $('.menu .menu__list');
-            if (menu.length) {
-                menu_items.forEach(function (item) {
-                    if (!$('.menu__item[data-id="' + item.id + '"]').length) {
-                        var el = $('<li class="menu__item selector" data-id="' + item.id + '"><div class="menu__ico">' + item.icon + '</div><div class="menu__text">' + item.title + '</div></li>');
-                        el.on('hover:enter', function () {
-                            // Открываем главную страницу плагина (первый плейлист)
-                            Lampa.Activity.push({
-                                url: lists[0].url,
-                                title: lists[0].title,
-                                component: plugin.component,
-                                id: 0,
-                                currentGroup: ''
-                            });
+        // Рисуем содержимое внутри раздела Hack TV
+        if (e.name === plugin_id) {
+            setTimeout(function() {
+                var content_box = e.body.find('.scroll__body > div, .scroll__content').last();
+                if (content_box.length) {
+                    var ip = Lampa.Storage.get('hack_tv_ip', '192.168.2.122');
+                    var proxy_status = Lampa.Storage.get('hack_tv_proxy_enabled', false) ? 'ВКЛ' : 'ВЫКЛ';
+                    
+                    var html = $('<div class="settings-list"></div>');
+                    
+                    var item_ip = $('<div class="settings-param selector"><div class="settings-param__name">IP Адрес сервера</div><div class="settings-param__value">' + ip + '</div></div>');
+                    var item_proxy = $('<div class="settings-param selector"><div class="settings-param__name">Прокси-режим</div><div class="settings-param__value">' + proxy_status + '</div></div>');
+
+                    item_ip.on('click', function() {
+                        Lampa.Input.edit({value: ip, title: 'Введите IP'}, function(new_val) {
+                            if(new_val) { Lampa.Storage.set('hack_tv_ip', new_val); Lampa.Settings.main(plugin_id); }
                         });
-                        menu.append(el);
-                    }
-                });
-            }
-        }
-        
-        // 2. Включаем прослушку пульта
-        if (e.type === 'keydown') {
-            keydown(e);
-        }
-    });
-}
+                    });
 
-// ГЛОБАЛЬНЫЙ ЗАПУСК
-if (window.appready) {
-    pluginStart();
-} else {
-    Lampa.Listener.follow('app', function (e) {
-        if (e.type == 'ready') pluginStart();
+                    item_proxy.on('click', function() {
+                        var current = Lampa.Storage.get('hack_tv_proxy_enabled', false);
+                        Lampa.Storage.set('hack_tv_proxy_enabled', !current);
+                        Lampa.Settings.main(plugin_id);
+                        Lampa.Noty.show('Прокси ' + (!current ? 'включен' : 'выключен'));
+                    });
+
+                    html.append(item_ip).append(item_proxy);
+                    content_box.empty().append(html);
+                    Lampa.Controller.enable('settings_list');
+                }
+            }, 150);
+        }
     });
-}
-// Проверка готовности для вывода в меню
-if (window.appready) pluginStart();
-else Lampa.Listener.follow('app', function (e) { if (e.type == 'ready') pluginStart(); });
+
+    // 5. Инициализация при старте
+    function pluginStart() {
+        if (window['plugin_' + plugin.component + '_ready']) return;
+        window['plugin_' + plugin.component + '_ready'] = true;
+
+        addSettingsFields();
+
+        // Добавляем иконку в левое меню
+        Lampa.Listener.follow('app', function (e) {
+            if (e.type == 'ready') {
+                var menu = $('.menu .menu__list');
+                if (menu.length && !menu.find('[data-id="hack_tv_main"]').length) {
+                    var el = $('<li class="menu__item selector" data-id="hack_tv_main"><div class="menu__ico">' + plugin.icon + '</div><div class="menu__text">Hack TV</div></li>');
+                    
+                    el.on('click', function () {
+                        // ТУТ ЛОГИКА: На ТВ открываем каналы, на ПК можно зажать и открыть настройки
+                        Lampa.Activity.push({
+                            url: lists[0].url,
+                            title: lists[0].title,
+                            component: plugin.component,
+                            id: 0
+                        });
+                    });
+                    menu.append(el);
+                }
+            }
+        });
+    }
+
+    // Запуск
+    if (window.appready) pluginStart();
+    else Lampa.Listener.follow('app', function (e) { if (e.type == 'ready') pluginStart(); });
 
 })();
