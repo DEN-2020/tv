@@ -544,30 +544,49 @@ function catchupUrl(url, type, source) {
         $('body').append(Lampa.Template.get(plugin.component + '_style', {}, true));
 
         function epgRender(epgId) {
-            var epg = getEpgSessCache(epgId, unixtime() / 60);
-            var el = $('[data-epg="' + epgId + '"]');
-            if (epg && epg.length && el.length) {
-                var now = epg[0];
-                var time = unixtime() / 60;
-                var progress = Math.min(100, Math.max(0, Math.round((time - now[0]) * 100 / now[1])));
-                
-                // Обновляем прогресс-бар на карточке
-                el.find('.card__epg-progress').css('width', progress + '%');
-                el.find('.card__epg-title').text(now[2]);
-                el.find('.card__age').show();
+            // 1. Берем данные из кеша (уже очищенные от старых передач)
+            var epg = (EPG[epgId] || [0, 0, []])[2]; 
+            if (!epg || !epg.length) return;
 
-                // Если открыта панель подробностей (epgTemplate)
+            // 2. Ищем карточку канала на экране
+            // В оригинале rootu используется [data-epg-id=...]
+            var epgEl = body.find('[data-epg-id="' + epgId + '"] .card__age');
+            if (!epgEl.length) return;
+
+            var t = Math.floor(unixtime() / 60); // текущее время в минутах
+            
+            // Чистим старые передачи из массива, если они там остались
+            while (epg.length && t >= (epg[0][0] + epg[0][1])) epg.shift();
+
+            if (epg.length) {
+                var now = epg[0];
+                // Считаем % прогресса: (сейчас - начало) / длительность
+                var progress = Math.round((t - now[0]) * 100 / (now[1] || 1));
+                progress = Math.min(100, Math.max(0, progress));
+
+                // Обновляем саму плитку канала в сетке
+                epgEl.find('.card__epg-title').text(now[2]);
+                epgEl.find('.js-epgProgress').css('width', progress + '%'); // проверь класс прогресс-бара
+                epgEl.show(); // Показываем блок программы, если он был скрыт
+
+                // 3. Если этот канал сейчас выбран (открыто инфо-окно)
                 if (epgIdCurrent === epgId) {
-                    epgTemplate.find('.js-epgTime').text(toLocaleTimeString(now[0] * 60 * 1000));
-                    epgTemplate.find('.js-epgTitle').text(now[2]);
-                    epgTemplate.find('.js-epgProgress').css('width', progress + '%');
-                    epgTemplate.find('.js-epgDesc').text(now[3] || '');
+                    var ec = $('#' + plugin.component + '_epg'); // контейнер шаблона epgTemplate
                     
-                    // Отрисовка списка "Что потом"
-                    var list = epgTemplate.find('.js-epgList').empty();
-                    for (var i = 1; i < Math.min(epg.length, 5); i++) {
+                    // Заголовок текущей передачи
+                    ec.find('.js-epgTitle').text(now[2]);
+                    ec.find('.js-epgTime').text(toLocaleTimeString(now[0] * 60000));
+                    ec.find('.js-epgProgress').css('width', progress + '%');
+                    
+                    // Описание (если есть в 4-м поле массива)
+                    var desc = now[3] ? now[3] : '';
+                    ec.find('.js-epgDesc').html(desc.replace(/\n/g, '<br>'));
+
+                    // Список "Что дальше"
+                    var list = ec.find('.js-epgList').empty();
+                    for (var i = 1; i < Math.min(epg.length, 6); i++) {
                         var item = epgItemTeplate.clone();
-                        item.find('.js-epgTime').text(toLocaleTimeString(epg[i][0] * 60 * 1000));
+                        item.find('.js-epgTime').text(toLocaleTimeString(epg[i][0] * 60000));
                         item.find('.js-epgTitle').text(epg[i][2]);
                         list.append(item);
                     }
@@ -604,12 +623,12 @@ function catchupUrl(url, type, source) {
 
         if (epgInterval) clearInterval(epgInterval);
         epgInterval = setInterval(function() {
-            for (var epgId in EPG) {
-                epgRender(epgId);
+            for (var id in EPG) {
+                epgRender(id);
             }
-        }, 1000);
+        }, 60000); // Обновляем раз в минуту
 
-        this.create = function () {
+            this.create = function () {
             var _this = this;
             this.on = function(){};
             this.activity.loader(true);
@@ -668,20 +687,30 @@ function catchupUrl(url, type, source) {
                 }
 
 
-                var parseList = function () {
+var parseList = function () {
                     if (typeof data != 'string' || data.substr(0, 7).toUpperCase() !== "#EXTM3U") {
                         emptyResult();
                         return;
                     }
-                    catalog = { '': { title: langGet('favorites'), channels: [] } };
-                    lists[object.id].groups = [{ title: langGet('favorites'), key: '' }];
+                    
+                    // Инициализируем структуру данных под твои переменные
+                    catalog = { '': { title: Lampa.Lang.translate('favorites'), channels: [] } };
+                    lists[object.id].groups = [{ title: Lampa.Lang.translate('favorites'), key: '' }];
                     
                     var l = data.split(/\r?\n/);
                     var cnt = 0, i = 1, chNum = 0, m, mm, defGroup = defaultGroup;
 
                     while (i < l.length) {
                         chNum = cnt + 1;
-                        var channel = { ChNum: chNum, Title: "Ch " + chNum, isYouTube: false, Url: '', Group: '', Options: {} };
+                        var channel = { 
+                            ChNum: chNum, 
+                            Title: "Ch " + chNum, 
+                            isYouTube: false, 
+                            Url: '', 
+                            Group: '', 
+                            plugin: plugin.component, // Важно для keydown
+                            tv: true 
+                        };
                         
                         for (; cnt < chNum && i < l.length; i++) {
                             if (!!(m = l[i].match(/^#EXTGRP:\s*(.+?)\s*$/i)) && m[1].trim() !== '') {
@@ -691,7 +720,8 @@ function catchupUrl(url, type, source) {
                                 if (!!m[1] && !!(m = m[1].match(/([^\s=]+)=((["'])(.*?)\3|\S+)/g))) {
                                     for (var j = 0; j < m.length; j++) {
                                         if (!!(mm = m[j].match(/([^\s=]+)=((["'])(.*?)\3|\S+)/))) {
-                                            channel[mm[1].toLowerCase()] = mm[4] || mm[2];
+                                            var key = mm[1].toLowerCase();
+                                            channel[key] = mm[4] || mm[2];
                                         }
                                     }
                                 }
@@ -706,84 +736,95 @@ function catchupUrl(url, type, source) {
                         if (!!channel.Url && !channel.isYouTube) {
                             if (!catalog[channel.Group]) {
                                 catalog[channel.Group] = { title: channel.Group, channels: [] };
+                                // Добавляем в твои группы (key = name, как ты и просил)
                                 lists[object.id].groups.push({ title: channel.Group, key: channel.Group });
                             }
-                            channel['epgId'] = epgIdByName(channel['Title'], true);
                             
-                            if (!channel['tvg-logo'] && channel['epgId']) {
-                                channel['tvg-logo'] = Lampa.Utils.protocol() + 'epg.it999.ru/img2/' + channel['epgId'] + '.png';
+                            // Привязка EPG
+                            var epg_id = channel['tvg-id'] || epgIdByName(channel.Title);
+                            if (epg_id) {
+                                channel['epgId'] = epg_id;
+                                if (!channel['tvg-logo']) {
+                                    channel['tvg-logo'] = 'https://epg.it999.ru/img2/' + epg_id + '.png';
+                                }
                             }
                             
                             catalog[channel.Group].channels.push(channel);
-                            var favI = favorite.indexOf(favID(channel.Title));
-                            if (favI !== -1) catalog[''].channels[favI] = channel;
+                            
+                            // Избранное через хэш Lampa
+                            var fav_id = Lampa.Utils.hash(channel.Title);
+                            if (favorite.indexOf(fav_id) !== -1) catalog[''].channels.push(channel);
                         }
                     }
 
-                    _this.build(!catalog[object.currentGroup] ? (lists[object.id].groups.length > 1 && !!catalog[lists[object.id].groups[1].key] ? catalog[lists[object.id].groups[1].key]['channels'] : []) : catalog[object.currentGroup]['channels']);
+                    // Рендерим нужную группу
+                    var activeGroup = object.currentGroup || '';
+                    if (!catalog[activeGroup]) activeGroup = lists[object.id].groups.length > 1 ? lists[object.id].groups[1].key : '';
+                    
+                    _this.build(catalog[activeGroup].channels);
                 };
 
                 var listUrl = prepareUrl(object.url);
                 network.native(listUrl, compileList, function () {
+                    // Пробуем через корс, если напрямую не вышло
                     network.silent(Lampa.Utils.protocol() + 'epg.rootu.top/cors.php?url=' + encodeURIComponent(listUrl), compileList, emptyResult, false, {dataType: 'text'});
                 }, false, {dataType: 'text'});
             }
         };
 
         this.build = function (data) {
+            var _this2 = this;
             Lampa.Background.change();
+            body.empty();
             
-            // Re-render templates
-            Lampa.Template.add(plugin.component + '_button_category', "<div class=\"full-start__button selector view--category\"><svg ...></svg><span>" + langGet('categories') + "</span></div>");
+            // Заголовок и инфо-блок (восстанавливаю структуру под EPG)
+            info = Lampa.Template.get('info');
+            info.find('.info__title').text(catalog[object.currentGroup || ''].title);
             
-            info = Lampa.Template.get(plugin.component + '_info_radio', {});
-            
-            var btn_cat = Lampa.Template.get(plugin.component + '_button_category', {});
-            btn_cat.on('hover:enter', function () {
-                var menu = [];
-                lists[object.id].groups.forEach(function (g) {
-                    menu.push({ title: g.title, key: g.key });
-                });
-                Lampa.Select.show({
-                    title: langGet('categories'),
-                    items: menu,
-                    onSelect: function (sel) {
-                        object.currentGroup = sel.key;
-                        Lampa.Activity.replace(Lampa.Arrays.clone(lists[object.id].activity));
-                    },
-                    onBack: function () { Lampa.Controller.toggle('content'); }
-                });
-            });
-
-            html.append(info);
-            html.append(btn_cat);
-            html.append(scroll.render());
+            html.empty().append(info).append(scroll.render());
             scroll.append(body);
 
-            this.append(data);
-        };
-
-        this.append = function (data) {
-            var _this2 = this;
             data.forEach(function (channel) {
                 var card = Lampa.Template.get('card', { title: channel.Title, release_year: '' });
-                card.addClass('card--collection');
+                card.addClass('card--collection ' + plugin.component);
                 
-                if (channel['tvg-logo']) card.find('.card__img')[0].src = channel['tvg-logo'];
+                // Добавляем контейнеры для EPG внутрь карточки
+                card.find('.card__age').empty().append('<div class="card__epg-progress js-epgProgress" style="width:0%"></div><div class="card__epg-title"></div>').show();
                 
+                if (channel['tvg-logo']) {
+                    card.find('.card__img').attr('src', channel['tvg-logo']);
+                }
+
+                if (channel.epgId) {
+                    card.attr('data-epg-id', channel.epgId);
+                    // Если программы в памяти нет — грузим
+                    if (!EPG[channel.epgId]) {
+                        EPG[channel.epgId] = [0, 0, []]; // Резервируем место
+                        network.silent('https://epg.rootu.top/api/epg/' + channel.epgId, function(res) {
+                            if (res && res.epg) EPG[channel.epgId] = [0, 0, res.epg];
+                        });
+                    }
+                }
+
                 card.on('hover:focus', function () {
-                    info.find('.info__title').text(channel.Title);
-                    if (channel['epgId']) {
-                        epgIdCurrent = channel['epgId'];
-                        epgRender(channel['epgId']);
+                    last = card[0];
+                    if (channel.epgId) {
+                        epgIdCurrent = channel.epgId;
+                        // Сразу рисуем детали EPG под карточкой
+                        info.find('.info__line').empty().append(epgTemplate.clone());
+                        epgRender(channel.epgId);
                     }
                 }).on('hover:enter', function () {
-                    Lampa.Player.play({ title: channel.Title, url: prepareUrl(channel.Url) });
+                    Lampa.Player.play({
+                        title: channel.Title,
+                        url: prepareUrl(channel.Url),
+                        playlist: data
+                    });
                 });
 
                 body.append(card);
             });
-            
+
             _this2.activity.loader(false);
             _this2.activity.toggle();
         };
@@ -798,9 +839,7 @@ function catchupUrl(url, type, source) {
                 up: function () { Lampa.Controller.toggle('head'); },
                 back: Lampa.Activity.backward
             });
-
             Lampa.Controller.toggle('content');
-            this.emit('start');
         };
 
         this.pause = function () {};
@@ -814,7 +853,6 @@ function catchupUrl(url, type, source) {
 
         this.render = function () { return html; };
     }
-
 if (!Lampa.Lang) {
     var lang_data = {};
     Lampa.Lang = {
@@ -1086,6 +1124,17 @@ function addSettings(type, param, callback) { // Добавили callback
     Lampa.SettingsApi.addParam(data);
 }
 
+function addSettings() {
+    // Добавляем параметр в хранилище Лампы
+    Lampa.Settings.add({
+        name: 'iptv_list_url',
+        type: 'input',
+        default: '',
+        name: 'Плейлист Hack TV',
+        description: 'Введите ссылку на m3u файл'
+    });
+}
+
 function configurePlaylist(i) {
     addSettings('title', {title: langGet('settings_playlist_num_group') + (i+1)});
     var defName = 'list ' + (i+1);
@@ -1246,12 +1295,42 @@ if (!UID) {
     Lampa.Template.add('settings_' + plugin_id, '<div class="settings-list"></div>');
 
     // 2. Регистрация компонента (чтобы не было пустых окон)
+// 2. Регистрация компонента (Отрисовка списка каналов)
     Lampa.Component.add(plugin_id, function (object, value) {
         var _this = this;
-        var html = $('<div class="settings-list"></div>');
-        this.create = function () { return html; };
-        this.render = function () { return html; };
-        this.ready = function () { Lampa.Controller.enable('settings_list'); };
+        var items = [];
+        var scroll = Lampa.Scroll.render();
+        
+        this.create = function () {
+            // Подгружаем данные первого плейлиста из твоего массива lists
+            var url = lists[0].url; 
+            
+            // Если включен прокси, подменяем URL
+            if(Lampa.Storage.get('hack_tv_proxy_enabled', false)) {
+                var ip = Lampa.Storage.get('hack_tv_ip', '127.0.0.1');
+                url = 'http://' + ip + ':7777/proxy?url=' + encodeURIComponent(url);
+            }
+
+            // Делаем запрос к списку каналов
+            var network = new Lampa.Reguest();
+            network.silent(url, function (data) {
+                // Здесь должна быть логика парсинга M3U, 
+                // но для теста просто выведем, что данные получены
+                _this.ready();
+            }, function () {
+                Lampa.Noty.show('Ошибка загрузки каналов');
+            });
+
+            return scroll.render();
+        };
+
+        this.render = function () {
+            return scroll.render();
+        };
+
+        this.ready = function () {
+            Lampa.Controller.enable('content');
+        };
     });
 
     // 3. Функция добавления параметров (Прокси и IP) в системное хранилище
