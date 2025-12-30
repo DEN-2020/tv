@@ -1,4 +1,4 @@
-/* 30.12.2025
+/*
 // https://ss-iptv.com/ru/operators/catchup
 // niklabs.com/catchup-settings/
 // http://plwxk8hl.russtv.net/iptv/00000000000000/9201/index.m3u8?utc=1666796400&lutc=1666826200
@@ -469,8 +469,17 @@
     }
 
     //Стиль
-    Lampa.Template.add(plugin.component + '_style', '<style>#PLUGIN_epg{margin-right:1em}.PLUGIN-program__desc{font-size:0.9em;margin:0.5em;text-align:justify;max-height:15em;overflow:hidden;}.PLUGIN.category-full{padding-bottom:10em}.PLUGIN div.card__view{position:relative;background-color:#353535;background-color:#353535a6;border-radius:1em;cursor:pointer;padding-bottom:60%}.PLUGIN.square_icons div.card__view{padding-bottom:100%}.PLUGIN img.card__img,.PLUGIN div.card__img{background-color:unset;border-radius:unset;max-height:100%;max-width:100%;height:auto;width:auto;position:absolute;top:50%;left:50%;-moz-transform:translate(-50%,-50%);-webkit-transform:translate(-50%,-50%);transform:translate(-50%,-50%);font-size:2em}.PLUGIN.contain_icons img.card__img{height:95%;width:95%;object-fit:contain}.PLUGIN .card__title{text-overflow:ellipsis;white-space:nowrap;overflow:hidden}.PLUGIN .card__age{padding:0;border:1px #3e3e3e solid;margin-top:0.3em;border-radius:0.3em;position:relative;display: none}.PLUGIN .card__age .card__epg-progress{position:absolute;background-color:#3a3a3a;top:0;left:0;width:0%;max-width:100%;height:100%}.PLUGIN .card__age .card__epg-title{position:relative;padding:0.4em 0.2em;text-overflow:ellipsis;white-space:nowrap;overflow:hidden;}.PLUGIN.category-full .card__icons {top:0.3em;right:0.3em;justify-content:right;}#PLUGIN{float:right;padding: 1.2em 0;width: 30%;}.PLUGIN-details__group{font-size:1.3em;margin-bottom:.9em;opacity:.5}.PLUGIN-details__title{font-size:4em;font-weight:700}.PLUGIN-details__program{padding-top:4em}.PLUGIN-details__program-title{font-size:1.2em;padding-left:4.9em;margin-top:1em;margin-bottom:1em;opacity:.5}.PLUGIN-details__program-list>div+div{margin-top:1em}.PLUGIN-details__program>div+div{margin-top:2em}.PLUGIN-program{display:-webkit-box;display:-webkit-flex;display:-moz-box;display:-ms-flexbox;display:flex;font-size:1.2em;font-weight:300}.PLUGIN-program__time{-webkit-flex-shrink:0;-ms-flex-negative:0;flex-shrink:0;width:5em;position:relative}.PLUGIN-program.focus .PLUGIN-program__time::after{content:\'\';position:absolute;top:.5em;right:.9em;width:.4em;background-color:#fff;height:.4em;-webkit-border-radius:100%;-moz-border-radius:100%;border-radius:100%;margin-top:-0.1em;font-size:1.2em}.PLUGIN-program__progressbar{width:10em;height:0.3em;border:0.05em solid #fff;border-radius:0.05em;margin:0.5em 0.5em 0 0}.PLUGIN-program__progress{height:0.25em;border:0.05em solid #fff;background-color:#fff;max-width: 100%}.PLUGIN .card__icon.icon--timeshift{background-image:url(https://epg.rootu.top/img/icon/timeshift.svg);}</style>'.replace(/PLUGIN/g, plugin.component));
-    $('body').append(Lampa.Template.get(plugin.component + '_style', {}, true));
+    var customCSS = '<style>#PLUGIN_epg{margin-right:1em} ... ' +
+    '.hacktv-proxy-wrap{display:flex;flex-direction:column;gap:0.6em;margin-left:1.4em;position:relative;z-index:30;pointer-events:auto;align-items:center}' +
+    '.hacktv-proxy-wrap .view--category{position:relative;z-index:31;pointer-events:auto}' +
+    '#stantion_filtr > .full-start__button{position:relative;z-index:10}' +
+    '.hacktv-proxy-wrap .view--category.focus,.hacktv-proxy-wrap .view--category:hover{background-color:rgba(255,255,255,0.12);border-radius:0.6em}' +
+    '</style>'.replace(/PLUGIN/g, plugin.component);
+
+    $('head').append(customCSS);
+
+
+
 
     function openProxySettings() {
         var enabled = Lampa.Storage.get('hack_tv_proxy_enabled', false);
@@ -1346,6 +1355,10 @@
             Lampa.Template.add(plugin.component + '_info_radio', '<div class="info layer--width"><div class="info__left"><div class="info__title"></div><div class="info__title-original"></div><div class="info__create"></div></div><div class="info__right" style="display: flex !important;">  <div id="stantion_filtr"></div></div></div>');
             var btn = Lampa.Template.get(plugin.component + '_button_category');
             info = Lampa.Template.get(plugin.component + '_info_radio');
+            // отдельный контейнер под proxy UI
+            var proxyWrap = $('<div class="hacktv-proxy-wrap"></div>');
+            info.find('#stantion_filtr').append(proxyWrap);
+
             // ================================
             // PROXY STATUS INDICATOR
             // ================================
@@ -1364,13 +1377,13 @@
                 '</div>'
             );
 
-            info.find('#stantion_filtr').append(proxyStatus);
+            proxyWrap.append(proxyStatus);
 
             info.find('#stantion_filtr').append(btn);
             // ⚙ кнопка настроек прокси
             var proxyBtn = $('<div class="view--category selector">⚙ Прокси</div>');
 
-            proxyBtn.on('hover:enter hover:click', function () {
+            proxyBtn.on('hover:enter', function () {
                 openProxySettings();
             });
 
@@ -1379,7 +1392,7 @@
             // ================================
             var proxyCheckBtn = $('<div class="view--category selector">🧪 Проверить прокси</div>');
 
-            proxyCheckBtn.on('hover:enter hover:click', function () {
+            proxyCheckBtn.on('hover:enter', function () {
                 var enabled = Lampa.Storage.get('hack_tv_proxy_enabled', false);
                 var host = (Lampa.Storage.get('hack_tv_proxy_host', '') || '').trim();
 
@@ -1403,14 +1416,14 @@
                 });
             });
 
-            info.find('#stantion_filtr').append(proxyCheckBtn);
+            proxyWrap.append(proxyCheckBtn);
 
 
-            info.find('#stantion_filtr').append(proxyBtn);
+            proxyWrap.append(proxyBtn);
 
-            info.find('.view--category').on('hover:enter hover:click', function () {
-                _this2.selectGroup();
-            });
+            // info.find('.view--category').on('hover:enter hover:click', function () {
+            //     _this2.selectGroup();
+            // });
             info.find('.info__title-original').text(!catalog[object.currentGroup] ? '' : catalog[object.currentGroup].title);
             info.find('.info__title').text('');
             html.append(info.append());
