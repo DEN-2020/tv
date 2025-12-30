@@ -1291,38 +1291,69 @@ if (!UID) {
         }
 
         // Рисуем содержимое внутри раздела Hack TV
-        if (e.name === plugin_id) {
-            setTimeout(function() {
-                var content_box = e.body.find('.scroll__body > div, .scroll__content').last();
-                if (content_box.length) {
-                    var ip = Lampa.Storage.get('hack_tv_ip', '192.168.2.122');
-                    var proxy_status = Lampa.Storage.get('hack_tv_proxy_enabled', false) ? 'ВКЛ' : 'ВЫКЛ';
-                    
-                    var html = $('<div class="settings-list"></div>');
-                    
-                    var item_ip = $('<div class="settings-param selector"><div class="settings-param__name">IP Адрес сервера</div><div class="settings-param__value">' + ip + '</div></div>');
-                    var item_proxy = $('<div class="settings-param selector"><div class="settings-param__name">Прокси-режим</div><div class="settings-param__value">' + proxy_status + '</div></div>');
+            if (e.name === plugin_id) {
+                setTimeout(function() {
+                    var content_box = e.body.find('.scroll__body > div, .scroll__content').last();
+                    if (content_box.length) {
+                        var ip = Lampa.Storage.get('hack_tv_ip', '192.168.2.122');
+                        var proxy_enabled = Lampa.Storage.get('hack_tv_proxy_enabled', false);
+                        var proxy_status_text = proxy_enabled ? 'ВКЛ' : 'ВЫКЛ';
+                        
+                        var html = $('<div class="settings-list"></div>');
+                        
+                        var item_ip = $('<div class="settings-param selector"><div class="settings-param__name">IP Адрес сервера</div><div class="settings-param__value">' + ip + '</div></div>');
+                        var item_proxy = $('<div class="settings-param selector"><div class="settings-param__name">Прокси-режим</div><div class="settings-param__value">' + proxy_status_text + '</div></div>');
+                        
+                        // --- ДОБАВЛЯЕМ ПУНКТ СТАТУСА ---
+                        var item_status = $('<div class="settings-param selector"><div class="settings-param__name">Статус сервера</div><div class="settings-param__value js-server-status">Проверка...</div></div>');
 
-                    item_ip.on('click', function() {
-                        Lampa.Input.edit({value: ip, title: 'Введите IP'}, function(new_val) {
-                            if(new_val) { Lampa.Storage.set('hack_tv_ip', new_val); Lampa.Settings.main(plugin_id); }
+                        // Функция проверки соединения
+                        var checkServer = function() {
+                            var status_el = item_status.find('.js-server-status');
+                            status_el.text('Подключение...').css('color', 'white');
+                            
+                            var network = new Lampa.Reguest();
+                            // Пробуем достучаться до корня или эндпоинта /proxy
+                            var test_url = 'http://' + ip + ':7777/'; 
+                            
+                            network.silent(test_url, function(json) {
+                                status_el.text('ONLINE (OK)').css('color', '#2ecc71'); // Зеленый
+                                console.log('Hack TV: Server is alive');
+                            }, function(a, c) {
+                                // Если статус 0 — сервер выключен, если 404/500 — сервер работает, но путь не тот
+                                status_el.text('OFFLINE (Error)').css('color', '#e74c3c'); // Красный
+                                console.log('Hack TV: Server connection failed');
+                            });
+                        };
+
+                        // Вызываем проверку при открытии
+                        checkServer();
+
+                        item_ip.on('click', function() {
+                            Lampa.Input.edit({value: ip, title: 'Введите IP'}, function(new_val) {
+                                if(new_val) { 
+                                    Lampa.Storage.set('hack_tv_ip', new_val); 
+                                    Lampa.Settings.main(plugin_id); 
+                                }
+                            });
                         });
-                    });
 
-                    item_proxy.on('click', function() {
-                        var current = Lampa.Storage.get('hack_tv_proxy_enabled', false);
-                        Lampa.Storage.set('hack_tv_proxy_enabled', !current);
-                        Lampa.Settings.main(plugin_id);
-                        Lampa.Noty.show('Прокси ' + (!current ? 'включен' : 'выключен'));
-                    });
+                        item_proxy.on('click', function() {
+                            var current = Lampa.Storage.get('hack_tv_proxy_enabled', false);
+                            Lampa.Storage.set('hack_tv_proxy_enabled', !current);
+                            Lampa.Settings.main(plugin_id);
+                        });
+                        
+                        // Клик по статусу принудительно обновляет проверку
+                        item_status.on('click', checkServer);
 
-                    html.append(item_ip).append(item_proxy);
-                    content_box.empty().append(html);
-                    Lampa.Controller.enable('settings_list');
-                }
-            }, 150);
-        }
-    });
+                        html.append(item_ip).append(item_proxy).append(item_status);
+                        content_box.empty().append(html);
+                        Lampa.Controller.enable('settings_list');
+                    }
+                }, 150);
+            }
+        });
 
     // 5. Инициализация при старте
     function pluginStart() {
