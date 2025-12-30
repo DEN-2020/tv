@@ -1,4 +1,4 @@
-/* UPDATED add proxy, ip, localhost, settings, notify, 
+/* 30.12.2025
 // https://ss-iptv.com/ru/operators/catchup
 // niklabs.com/catchup-settings/
 // http://plwxk8hl.russtv.net/iptv/00000000000000/9201/index.m3u8?utc=1666796400&lutc=1666826200
@@ -1628,43 +1628,45 @@
     // ================================
     // SETTINGS: PROXY (ADDED)
     // ================================
-    Lampa.Settings.add({
-        component: plugin.component,
-        name: plugin.name,
-        icon: plugin.icon,
-        items: [
-            {
-                title: 'Прокси',
-                separator: true
-            },
-            {
-                title: 'Использовать прокси',
-                setting: 'hack_tv_proxy_enabled',
-                type: 'toggle',
-                default: false
-            },
-            {
-                title: 'Хост прокси',
-                setting: 'hack_tv_proxy_host',
-                type: 'input',
-                placeholder: 'http://192.168.1.10:7777',
-                default: ''
-            },
-            {
-                title: 'Статус прокси',
-                type: 'static',
-                value: function () {
-                    if (!Lampa.Storage.get('hack_tv_proxy_enabled', false))
-                        return 'Выключен';
+    if (Lampa.Settings && typeof Lampa.Settings.add === 'function') {
+        Lampa.Settings.add({
+            component: plugin.component,
+            name: plugin.name,
+            icon: plugin.icon,
+            items: [
+                {
+                    title: 'Прокси',
+                    separator: true
+                },
+                {
+                    title: 'Использовать прокси',
+                    setting: 'hack_tv_proxy_enabled',
+                    type: 'toggle',
+                    default: false
+                },
+                {
+                    title: 'Хост прокси',
+                    setting: 'hack_tv_proxy_host',
+                    type: 'input',
+                    placeholder: 'http://192.168.1.10:7777',
+                    default: ''
+                },
+                {
+                    title: 'Статус прокси',
+                    type: 'static',
+                    value: function () {
+                        if (!Lampa.Storage.get('hack_tv_proxy_enabled', false))
+                            return 'Выключен';
 
-                    var host = (Lampa.Storage.get('hack_tv_proxy_host', '') || '').trim();
-                    if (!host) return '⚠️ Хост не задан';
+                        var host = (Lampa.Storage.get('hack_tv_proxy_host', '') || '').trim();
+                        if (!host) return '⚠️ Хост не задан';
 
-                    return '🟢 Включён: ' + host;
+                        return '🟢 Включён: ' + host;
+                    }
                 }
-            }
-        ]
-    });
+            ]
+        });
+    }
 
 
     Lampa.Lang.add(langData);
