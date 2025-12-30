@@ -1,4 +1,4 @@
-/* 30.12.2025
+/*
 // https://ss-iptv.com/ru/operators/catchup
 // niklabs.com/catchup-settings/
 // http://plwxk8hl.russtv.net/iptv/00000000000000/9201/index.m3u8?utc=1666796400&lutc=1666826200
@@ -472,6 +472,58 @@
     Lampa.Template.add(plugin.component + '_style', '<style>#PLUGIN_epg{margin-right:1em}.PLUGIN-program__desc{font-size:0.9em;margin:0.5em;text-align:justify;max-height:15em;overflow:hidden;}.PLUGIN.category-full{padding-bottom:10em}.PLUGIN div.card__view{position:relative;background-color:#353535;background-color:#353535a6;border-radius:1em;cursor:pointer;padding-bottom:60%}.PLUGIN.square_icons div.card__view{padding-bottom:100%}.PLUGIN img.card__img,.PLUGIN div.card__img{background-color:unset;border-radius:unset;max-height:100%;max-width:100%;height:auto;width:auto;position:absolute;top:50%;left:50%;-moz-transform:translate(-50%,-50%);-webkit-transform:translate(-50%,-50%);transform:translate(-50%,-50%);font-size:2em}.PLUGIN.contain_icons img.card__img{height:95%;width:95%;object-fit:contain}.PLUGIN .card__title{text-overflow:ellipsis;white-space:nowrap;overflow:hidden}.PLUGIN .card__age{padding:0;border:1px #3e3e3e solid;margin-top:0.3em;border-radius:0.3em;position:relative;display: none}.PLUGIN .card__age .card__epg-progress{position:absolute;background-color:#3a3a3a;top:0;left:0;width:0%;max-width:100%;height:100%}.PLUGIN .card__age .card__epg-title{position:relative;padding:0.4em 0.2em;text-overflow:ellipsis;white-space:nowrap;overflow:hidden;}.PLUGIN.category-full .card__icons {top:0.3em;right:0.3em;justify-content:right;}#PLUGIN{float:right;padding: 1.2em 0;width: 30%;}.PLUGIN-details__group{font-size:1.3em;margin-bottom:.9em;opacity:.5}.PLUGIN-details__title{font-size:4em;font-weight:700}.PLUGIN-details__program{padding-top:4em}.PLUGIN-details__program-title{font-size:1.2em;padding-left:4.9em;margin-top:1em;margin-bottom:1em;opacity:.5}.PLUGIN-details__program-list>div+div{margin-top:1em}.PLUGIN-details__program>div+div{margin-top:2em}.PLUGIN-program{display:-webkit-box;display:-webkit-flex;display:-moz-box;display:-ms-flexbox;display:flex;font-size:1.2em;font-weight:300}.PLUGIN-program__time{-webkit-flex-shrink:0;-ms-flex-negative:0;flex-shrink:0;width:5em;position:relative}.PLUGIN-program.focus .PLUGIN-program__time::after{content:\'\';position:absolute;top:.5em;right:.9em;width:.4em;background-color:#fff;height:.4em;-webkit-border-radius:100%;-moz-border-radius:100%;border-radius:100%;margin-top:-0.1em;font-size:1.2em}.PLUGIN-program__progressbar{width:10em;height:0.3em;border:0.05em solid #fff;border-radius:0.05em;margin:0.5em 0.5em 0 0}.PLUGIN-program__progress{height:0.25em;border:0.05em solid #fff;background-color:#fff;max-width: 100%}.PLUGIN .card__icon.icon--timeshift{background-image:url(https://epg.rootu.top/img/icon/timeshift.svg);}</style>'.replace(/PLUGIN/g, plugin.component));
     $('body').append(Lampa.Template.get(plugin.component + '_style', {}, true));
 
+    function openProxySettings() {
+        var enabled = Lampa.Storage.get('hack_tv_proxy_enabled', false);
+        var host = Lampa.Storage.get('hack_tv_proxy_host', '');
+
+        Lampa.Modal.open({
+            title: 'Hack TV — Прокси',
+            html: `
+                <div style="padding:1em">
+                    <label style="display:block;margin-bottom:.5em">
+                        <input type="checkbox" id="proxy-enable" ${enabled ? 'checked' : ''}>
+                        Использовать прокси
+                    </label>
+
+                    <input
+                        id="proxy-host"
+                        placeholder="http://192.168.1.10:7777"
+                        value="${host}"
+                        style="width:100%;padding:.5em;margin-bottom:.5em"
+                    >
+
+                    <div style="opacity:.7">
+                        Статус: ${enabled ? '🟢 Включён' : '🔴 Выключен'}
+                    </div>
+                </div>
+            `,
+            buttons: [
+                {
+                    name: 'Сохранить',
+                    onSelect: function () {
+                        var en = document.getElementById('proxy-enable').checked;
+                        var h  = document.getElementById('proxy-host').value.trim();
+
+                        Lampa.Storage.set('hack_tv_proxy_enabled', en);
+                        Lampa.Storage.set('hack_tv_proxy_host', h);
+                        if (proxyStatus) {
+                            proxyStatus.text(getProxyStatusText());
+                        }
+
+                        Lampa.Noty.show('Настройки прокси сохранены');
+                        Lampa.Modal.close();
+                    }
+                },
+                {
+                    name: 'Отмена',
+                    onSelect: Lampa.Modal.close
+                }
+            ]
+        });
+    }
+
+
+
     function pluginPage(object) {
         if (object.id !== curListId) {
         catalog = {};
@@ -527,7 +579,10 @@
 
             var empty = new Lampa.Empty();
             html.append(empty.render());
-            _this.start = empty.start;
+            _this.start = function () {
+                Lampa.Controller.collectionSet(html);
+                Navigator.move('right');
+            };
             _this.activity.loader(false);
             _this.activity.toggle();
         };
@@ -750,8 +805,9 @@
             }
             var rawUrl  = object.url;              // ← ОРИГИНАЛ
             var listUrl = prepareUrl(object.url);  // ← МОЖЕТ БЫТЬ ПРОКСИ
-
+            var manifestErrorShown = false;
             network.native(
+                
                 listUrl,
                 compileList,
                 function () {
@@ -1269,41 +1325,102 @@
         // console.log('Epg', catEpgHash, catEpgString, data);
         };
         this.build = function (data) {
-        var _this2 = this;
-        Lampa.Background.change();
-        Lampa.Template.add(plugin.component + '_button_category', "<style>@media screen and (max-width: 2560px) {." + plugin.component + " .card--collection {width: 16.6%!important;}}@media screen and (max-width: 800px) {." + plugin.component + " .card--collection {width: 24.6%!important;}}@media screen and (max-width: 500px) {." + plugin.component + " .card--collection {width: 33.3%!important;}}</style><div class=\"full-start__button selector view--category\"><svg style=\"enable-background:new 0 0 512 512;\" version=\"1.1\" viewBox=\"0 0 24 24\" xml:space=\"preserve\" xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\"><g id=\"info\"/><g id=\"icons\"><g id=\"menu\"><path d=\"M20,10H4c-1.1,0-2,0.9-2,2c0,1.1,0.9,2,2,2h16c1.1,0,2-0.9,2-2C22,10.9,21.1,10,20,10z\" fill=\"currentColor\"/><path d=\"M4,8h12c1.1,0,2-0.9,2-2c0-1.1-0.9-2-2-2H4C2.9,4,2,4.9,2,6C2,7.1,2.9,8,4,8z\" fill=\"currentColor\"/><path d=\"M16,16H4c-1.1,0-2,0.9-2,2c0,1.1,0.9,2,2,2h12c1.1,0,2-0.9,2-2C18,16.9,17.1,16,16,16z\" fill=\"currentColor\"/></g></g></svg><span>" + langGet('categories') + "</span>\n	</div>");
-        Lampa.Template.add(plugin.component + '_info_radio', '<div class="info layer--width"><div class="info__left"><div class="info__title"></div><div class="info__title-original"></div><div class="info__create"></div></div><div class="info__right" style="display: flex !important;">  <div id="stantion_filtr"></div></div></div>');
-        var btn = Lampa.Template.get(plugin.component + '_button_category');
-        info = Lampa.Template.get(plugin.component + '_info_radio');
-        info.find('#stantion_filtr').append(btn);
-        info.find('.view--category').on('hover:enter hover:click', function () {
-            _this2.selectGroup();
-        });
-        info.find('.info__title-original').text(!catalog[object.currentGroup] ? '' : catalog[object.currentGroup].title);
-        info.find('.info__title').text('');
-        html.append(info.append());
-        // this.activity.loader(false);
-        // this.activity.toggle();
-        if (data.length) {
-            scroll.render().addClass('layer--wheight').data('mheight', info);
-            html.append(scroll.render());
-            this.append(data);
-            if (getStorage('epg', false)) {
-            scroll.render().css({float: "left", width: '70%'});
-            scroll.render().parent().append(epgTemplate);
+            var _this2 = this;
+            Lampa.Background.change();
+            Lampa.Template.add(plugin.component + '_button_category', "<style>@media screen and (max-width: 2560px) {." + plugin.component + " .card--collection {width: 16.6%!important;}}@media screen and (max-width: 800px) {." + plugin.component + " .card--collection {width: 24.6%!important;}}@media screen and (max-width: 500px) {." + plugin.component + " .card--collection {width: 33.3%!important;}}</style><div class=\"full-start__button selector view--category\"><svg style=\"enable-background:new 0 0 512 512;\" version=\"1.1\" viewBox=\"0 0 24 24\" xml:space=\"preserve\" xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\"><g id=\"info\"/><g id=\"icons\"><g id=\"menu\"><path d=\"M20,10H4c-1.1,0-2,0.9-2,2c0,1.1,0.9,2,2,2h16c1.1,0,2-0.9,2-2C22,10.9,21.1,10,20,10z\" fill=\"currentColor\"/><path d=\"M4,8h12c1.1,0,2-0.9,2-2c0-1.1-0.9-2-2-2H4C2.9,4,2,4.9,2,6C2,7.1,2.9,8,4,8z\" fill=\"currentColor\"/><path d=\"M16,16H4c-1.1,0-2,0.9-2,2c0,1.1,0.9,2,2,2h12c1.1,0,2-0.9,2-2C18,16.9,17.1,16,16,16z\" fill=\"currentColor\"/></g></g></svg><span>" + langGet('categories') + "</span>\n	</div>");
+            Lampa.Template.add(plugin.component + '_info_radio', '<div class="info layer--width"><div class="info__left"><div class="info__title"></div><div class="info__title-original"></div><div class="info__create"></div></div><div class="info__right" style="display: flex !important;">  <div id="stantion_filtr"></div></div></div>');
+            var btn = Lampa.Template.get(plugin.component + '_button_category');
+            info = Lampa.Template.get(plugin.component + '_info_radio');
+            // ================================
+            // PROXY STATUS INDICATOR
+            // ================================
+            function getProxyStatusText() {
+                var enabled = Lampa.Storage.get('hack_tv_proxy_enabled', false);
+                var host = (Lampa.Storage.get('hack_tv_proxy_host', '') || '').trim();
+
+                if (!enabled) return '🔴 Прокси: OFF';
+                if (!host) return '⚠️ Прокси: нет хоста';
+                return '🟢 Прокси: ' + host;
             }
-            scroll.append(body);
-            setStorage('last_catalog' + object.id, object.currentGroup ? object.currentGroup : '!!');
-            lists[object.id].activity.currentGroup = object.currentGroup;
-        } else {
-            var empty = new Lampa.Empty();
-            html.append(empty.render());
-            // this.start = empty.start;
-            this.activity.loader(false);
+
+            var proxyStatus = $(
+                '<div class="view--category" style="opacity:.8">' +
+                    getProxyStatusText() +
+                '</div>'
+            );
+
+            info.find('#stantion_filtr').append(proxyStatus);
+
+            info.find('#stantion_filtr').append(btn);
+            // ⚙ кнопка настроек прокси
+            var proxyBtn = $('<div class="view--category selector">⚙ Прокси</div>');
+
+            proxyBtn.on('hover:enter hover:click', function () {
+                openProxySettings();
+            });
+
+            // ================================
+            // PROXY CHECK BUTTON
+            // ================================
+            var proxyCheckBtn = $('<div class="view--category selector">🧪 Проверить прокси</div>');
+
+            proxyCheckBtn.on('hover:enter hover:click', function () {
+                var enabled = Lampa.Storage.get('hack_tv_proxy_enabled', false);
+                var host = (Lampa.Storage.get('hack_tv_proxy_host', '') || '').trim();
+
+                if (!enabled || !host) {
+                    Lampa.Noty.show('Прокси выключен или не задан хост', 3000);
+                    return;
+                }
+
+                var testUrl = host.replace(/\/$/, '') + '/health';
+
+                $.ajax({
+                    url: testUrl,
+                    type: 'HEAD',
+                    timeout: 3000,
+                    success: function () {
+                        Lampa.Noty.show('🟢 Прокси доступен', 3000);
+                    },
+                    error: function () {
+                        Lampa.Noty.show('🔴 Прокси не отвечает', 4000);
+                    }
+                });
+            });
+
+            info.find('#stantion_filtr').append(proxyCheckBtn);
+
+
+            info.find('#stantion_filtr').append(proxyBtn);
+
+            info.find('.view--category').on('hover:enter hover:click', function () {
+                _this2.selectGroup();
+            });
+            info.find('.info__title-original').text(!catalog[object.currentGroup] ? '' : catalog[object.currentGroup].title);
+            info.find('.info__title').text('');
+            html.append(info.append());
+            // this.activity.loader(false);
             // this.activity.toggle();
-            Lampa.Controller.collectionSet(info);
-            Navigator.move('right');
-        }
+            if (data.length) {
+                scroll.render().addClass('layer--wheight').data('mheight', info);
+                html.append(scroll.render());
+                this.append(data);
+                if (getStorage('epg', false)) {
+                scroll.render().css({float: "left", width: '70%'});
+                scroll.render().parent().append(epgTemplate);
+                }
+                scroll.append(body);
+                setStorage('last_catalog' + object.id, object.currentGroup ? object.currentGroup : '!!');
+                lists[object.id].activity.currentGroup = object.currentGroup;
+            } else {
+                var empty = new Lampa.Empty();
+                html.append(empty.render());
+                // this.start = empty.start;
+                this.activity.loader(false);
+                // this.activity.toggle();
+                Lampa.Controller.collectionSet(info);
+                Navigator.move('right');
+            }
         };
         this.selectGroup = function () {
         var activity = Lampa.Arrays.clone(lists[object.id].activity);
@@ -1325,41 +1442,41 @@
         };
         this.start = function () {
         if (Lampa.Activity.active().activity !== this.activity) return; //обязательно, иначе наблюдается баг, активность создается но не стартует, в то время как компонент загружается и стартует самого себя.
-        var _this = this;
-        Lampa.Controller.add('content', {
-            toggle: function toggle() {
-            Lampa.Controller.collectionSet(scroll.render());
-            Lampa.Controller.collectionFocus(last || false, scroll.render());
-            },
-            left: function left() {
-            if (Navigator.canmove('left')) Navigator.move('left');
-            else Lampa.Controller.toggle('menu');
-            },
-            right: function right() {
-            if (Navigator.canmove('right')) Navigator.move('right');
-            else _this.selectGroup();
-            },
-            up: function up() {
-            if (Navigator.canmove('up')) {
-                Navigator.move('up');
-            } else {
-                if (!info.find('.view--category').hasClass('focus')) {
-                Lampa.Controller.collectionSet(info);
-                Navigator.move('right')
-                } else Lampa.Controller.toggle('head');
-            }
-            },
-            down: function down() {
-            if (Navigator.canmove('down')) Navigator.move('down');
-            else if (info.find('.view--category').hasClass('focus')) {
-                Lampa.Controller.toggle('content');
-            }
-            },
-            back: function back() {
-            Lampa.Activity.backward();
-            }
-        });
-        Lampa.Controller.toggle('content');
+            var _this = this;
+            Lampa.Controller.add('content', {
+                toggle: function toggle() {
+                Lampa.Controller.collectionSet(scroll.render());
+                Lampa.Controller.collectionFocus(last || false, scroll.render());
+                },
+                left: function left() {
+                if (Navigator.canmove('left')) Navigator.move('left');
+                else Lampa.Controller.toggle('menu');
+                },
+                right: function right() {
+                if (Navigator.canmove('right')) Navigator.move('right');
+                else _this.selectGroup();
+                },
+                up: function up() {
+                if (Navigator.canmove('up')) {
+                    Navigator.move('up');
+                } else {
+                    if (!info.find('.view--category').hasClass('focus')) {
+                    Lampa.Controller.collectionSet(info);
+                    Navigator.move('right')
+                    } else Lampa.Controller.toggle('head');
+                }
+                },
+                down: function down() {
+                if (Navigator.canmove('down')) Navigator.move('down');
+                else if (info.find('.view--category').hasClass('focus')) {
+                    Lampa.Controller.toggle('content');
+                }
+                },
+                back: function back() {
+                Lampa.Activity.backward();
+                }
+            });
+            Lampa.Controller.toggle('content');
         };
         this.pause = function () {
         Lampa.Player.runas && Lampa.Player.runas('');
