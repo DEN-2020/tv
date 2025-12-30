@@ -469,14 +469,63 @@
     }
 
     //Стиль
-    var customCSS = '<style>#PLUGIN_epg{margin-right:1em} ... ' +
-    '.hacktv-proxy-wrap{display:flex;flex-direction:column;gap:0.6em;margin-left:1.4em;position:relative;z-index:30;pointer-events:auto;align-items:center}' +
-    '.hacktv-proxy-wrap .view--category{position:relative;z-index:31;pointer-events:auto}' +
-    '#stantion_filtr > .full-start__button{position:relative;z-index:10}' +
-    '.hacktv-proxy-wrap .view--category.focus,.hacktv-proxy-wrap .view--category:hover{background-color:rgba(255,255,255,0.12);border-radius:0.6em}' +
-    '</style>'.replace(/PLUGIN/g, plugin.component);
+    // ===== Hack TV Proxy UI styles =====
+    var customCSS = (
+    '<style>' +
+
+    /* ===== базовые стили плагина (у тебя уже есть, оставляем) ===== */
+    '#PLUGIN_epg{margin-right:1em}' +
+
+    /* ===== контейнер proxy UI ===== */
+    '.hacktv-proxy-wrap{' +
+    'display:flex;' +
+    'flex-direction:column;' +
+    'gap:0.6em;' +
+    'margin-left:1.4em;' +
+    'position:relative;' +
+    'z-index:30;' +
+    'pointer-events:auto;' +
+    'align-items:center;' +
+    '}' +
+
+    /* ===== общий слой для элементов ===== */
+    '.hacktv-proxy-wrap .view--category{' +
+    'position:relative;' +
+    'z-index:31;' +
+    'pointer-events:auto;' +
+    '}' +
+
+    /* ===== статус (НЕ кнопка) ===== */
+    '.hacktv-proxy-wrap .view--category:not(.selector){' +
+    'opacity:0.75;' +
+    'cursor:default;' +
+    '}' +
+
+    /* ===== кнопки ===== */
+    '.hacktv-proxy-wrap .view--category.selector{' +
+    'padding:0.6em 1em;' +
+    'border-radius:0.7em;' +
+    'background:rgba(255,255,255,0.08);' +
+    'cursor:pointer;' +
+    '}' +
+
+    /* ===== hover / focus для кнопок ===== */
+    '.hacktv-proxy-wrap .view--category.selector.focus,' +
+    '.hacktv-proxy-wrap .view--category.selector:hover{' +
+    'background:rgba(255,255,255,0.18);' +
+    '}' +
+
+    /* ===== системная кнопка "Категории" ниже proxy UI ===== */
+    '#stantion_filtr > .full-start__button{' +
+    'position:relative;' +
+    'z-index:10;' +
+    '}' +
+
+    '</style>'
+    ).replace(/PLUGIN/g, plugin.component);
 
     $('head').append(customCSS);
+
 
 
 
@@ -1362,18 +1411,35 @@
             // ================================
             // PROXY STATUS INDICATOR
             // ================================
-            function getProxyStatusText() {
+            function getProxyStatus() {
                 var enabled = Lampa.Storage.get('hack_tv_proxy_enabled', false);
                 var host = (Lampa.Storage.get('hack_tv_proxy_host', '') || '').trim();
 
-                if (!enabled) return '🔴 Прокси: OFF';
-                if (!host) return '⚠️ Прокси: нет хоста';
-                return '🟢 Прокси: ' + host;
+                if (!enabled) {
+                    return { text: '🔴 Прокси выключен', level: 'off' };
+                }
+
+                if (!host) {
+                    return { text: '🟡 Прокси включён, но хост не задан', level: 'warn' };
+                }
+
+                return { text: '🟢 Прокси активен: ' + host, level: 'on' };
             }
 
+            function refreshProxyStatus() {
+            var state = getProxyStatus();
+            proxyStatus.text(state.text);
+
+            proxyStatus
+                .removeClass('proxy-off proxy-warn proxy-on')
+                .addClass('proxy-' + state.level);
+            }
+
+            refreshProxyStatus();
+
             var proxyStatus = $(
-                '<div class="view--category" style="opacity:.8">' +
-                    getProxyStatusText() +
+                '<div class="view--category" style="opacity:.85"></div>' +
+                    getProxyStatus() +
                 '</div>'
             );
 
@@ -1385,6 +1451,7 @@
 
             proxyBtn.on('hover:enter', function () {
                 openProxySettings();
+                setTimeout(refreshProxyStatus, 300);
             });
 
             // ================================
@@ -1397,7 +1464,8 @@
                 var host = (Lampa.Storage.get('hack_tv_proxy_host', '') || '').trim();
 
                 if (!enabled || !host) {
-                    Lampa.Noty.show('Прокси выключен или не задан хост', 3000);
+                    Lampa.Noty.show('Прокси включён, но не настроен', 3000);
+                    refreshProxyStatus();
                     return;
                 }
 
@@ -1409,14 +1477,17 @@
                     timeout: 3000,
                     success: function () {
                         Lampa.Noty.show('🟢 Прокси доступен', 3000);
+                        refreshProxyStatus();
                     },
                     error: function () {
                         Lampa.Noty.show('🔴 Прокси не отвечает', 4000);
+                        refreshProxyStatus();
                     }
                 });
             });
 
             proxyWrap.append(proxyCheckBtn);
+
 
 
             proxyWrap.append(proxyBtn);
