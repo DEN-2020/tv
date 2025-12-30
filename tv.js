@@ -1,5 +1,5 @@
 /*
-UPDATED 30.12.2025 PROXI IP SERVER ADDED
+UPDATED 30.12.2025
 */
 ;(function () {
 'use strict';
@@ -1242,6 +1242,8 @@ if (!UID) {
 
 // 1. Уникальный ID для настроек
     var plugin_id = 'hack_tv_final';
+
+    Lampa.Template.add('settings_' + plugin_id, '<div class="settings-list"></div>');
 
     // 2. Регистрация компонента (чтобы не было пустых окон)
     Lampa.Component.add(plugin_id, function (object, value) {
