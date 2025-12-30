@@ -1,4 +1,4 @@
-/*
+/* 30.12.2025
 // https://ss-iptv.com/ru/operators/catchup
 // niklabs.com/catchup-settings/
 // http://plwxk8hl.russtv.net/iptv/00000000000000/9201/index.m3u8?utc=1666796400&lutc=1666826200
@@ -474,53 +474,68 @@
 
     function openProxySettings() {
         var enabled = Lampa.Storage.get('hack_tv_proxy_enabled', false);
-        var host = Lampa.Storage.get('hack_tv_proxy_host', '');
+        var host = (Lampa.Storage.get('hack_tv_proxy_host', '') || '').trim();
 
-        Lampa.Modal.open({
+        Lampa.Select.show({
             title: 'Hack TV — Прокси',
-            html: `
-                <div style="padding:1em">
-                    <label style="display:block;margin-bottom:.5em">
-                        <input type="checkbox" id="proxy-enable" ${enabled ? 'checked' : ''}>
-                        Использовать прокси
-                    </label>
-
-                    <input
-                        id="proxy-host"
-                        placeholder="http://192.168.1.10:7777"
-                        value="${host}"
-                        style="width:100%;padding:.5em;margin-bottom:.5em"
-                    >
-
-                    <div style="opacity:.7">
-                        Статус: ${enabled ? '🟢 Включён' : '🔴 Выключен'}
-                    </div>
-                </div>
-            `,
-            buttons: [
+            items: [
                 {
-                    name: 'Сохранить',
-                    onSelect: function () {
-                        var en = document.getElementById('proxy-enable').checked;
-                        var h  = document.getElementById('proxy-host').value.trim();
-
-                        Lampa.Storage.set('hack_tv_proxy_enabled', en);
-                        Lampa.Storage.set('hack_tv_proxy_host', h);
-                        if (proxyStatus) {
-                            proxyStatus.text(getProxyStatusText());
-                        }
-
-                        Lampa.Noty.show('Настройки прокси сохранены');
-                        Lampa.Modal.close();
-                    }
+                    title: enabled ? '🟢 Прокси: ВКЛ' : '🔴 Прокси: ВЫКЛ',
+                    toggle: true
                 },
                 {
-                    name: 'Отмена',
-                    onSelect: Lampa.Modal.close
+                    title: 'Хост: ' + (host || 'не задан'),
+                    input: true
+                },
+                {
+                    title: '🧪 Проверить прокси',
+                    check: true
                 }
-            ]
+            ],
+            onSelect: function (item, index) {
+
+                // toggle proxy
+                if (item.toggle) {
+                    Lampa.Storage.set('hack_tv_proxy_enabled', !enabled);
+                    Lampa.Noty.show('Прокси ' + (!enabled ? 'включён' : 'выключен'));
+                    return;
+                }
+
+                // input host
+                if (item.input) {
+                    Lampa.Input.show({
+                        title: 'Хост прокси',
+                        value: host,
+                        placeholder: 'http://192.168.1.10:7777',
+                        onSubmit: function (value) {
+                            Lampa.Storage.set('hack_tv_proxy_host', value.trim());
+                            Lampa.Noty.show('Хост сохранён');
+                        }
+                    });
+                    return;
+                }
+
+                // check proxy
+                if (item.check) {
+                    if (!enabled || !host) {
+                        Lampa.Noty.show('Прокси выключен или не задан');
+                        return;
+                    }
+
+                    var test = host.replace(/\/$/, '') + '/health';
+                    new Lampa.Reguest().silent(
+                        test,
+                        () => Lampa.Noty.show('🟢 Прокси доступен'),
+                        () => Lampa.Noty.show('🔴 Прокси не отвечает')
+                    );
+                }
+            },
+            onBack: function () {
+                Lampa.Controller.toggle('content');
+            }
         });
     }
+
 
 
 
